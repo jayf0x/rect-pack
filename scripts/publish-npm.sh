@@ -10,9 +10,15 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
+# ── build + typecheck + test ─────────────────────────────────────────────────
+bun run build
+bun run typecheck
+bun run test
+bun run format
+
 # ── version bump ──────────────────────────────────────────────────────────────
 # BUMP=patch|minor|major, or pass an explicit version: BUMP=1.2.0
-NEW=$(bash "$(dirname "$0")/patch-json.sh" "${BUMP:-patch}")
+NEW=$(bun "$(dirname "$0")/patch-json.mjs" "${BUMP:-patch}")
 TAG="v$NEW"
 
 if git rev-parse "$TAG" >/dev/null 2>&1; then
@@ -21,12 +27,6 @@ if git rev-parse "$TAG" >/dev/null 2>&1; then
 fi
 
 echo "Bumped to $NEW"
-
-# ── build + typecheck + test ─────────────────────────────────────────────────
-bun run build
-bun run typecheck
-bun run test
-bun run format
 
 # ── commit + tag + push (GHA workflow handles npm publish) ────────────────────
 git add .

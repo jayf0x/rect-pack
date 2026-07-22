@@ -35,6 +35,11 @@ export type GridPackProps = {
   fill?: boolean;
   /** Row height when `fill` is false. Ignored when filling. */
   rowHeight?: number | string;
+  /**
+   * `true` (default): items transition their position/size smoothly when weights or the item set
+   * change, instead of snapping. Off for users who prefer reduced motion, regardless of this prop.
+   */
+  animate?: boolean;
   showGrid?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -47,6 +52,7 @@ export const GridPack = ({
   gap = 8,
   fill = true,
   rowHeight = 96,
+  animate = true,
   showGrid = false,
   className,
   style,
@@ -63,6 +69,10 @@ export const GridPack = ({
 
   const gapValue = typeof gap === 'number' ? `${gap}px` : gap;
   const rowHeightValue = typeof rowHeight === 'number' ? `${rowHeight}px` : rowHeight;
+  // ponytail: read once per render, not watched live — a user flipping the OS motion setting
+  // mid-session and expecting this exact grid to react instantly is a vanishingly small case.
+  const reducedMotion = typeof window !== 'undefined' && window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+  const transition = animate && !reducedMotion ? 'left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease' : undefined;
 
   const containerStyle: CSSProperties = {
     position: 'relative',
@@ -85,6 +95,7 @@ export const GridPack = ({
             top: `${p.y * 100}%`,
             width: `${p.w * 100}%`,
             height: `${p.h * 100}%`,
+            transition,
             padding: `calc(${gapValue} / 2)`,
             boxSizing: 'border-box',
             minWidth: 0,

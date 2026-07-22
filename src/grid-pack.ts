@@ -63,13 +63,12 @@ const slice = (row: Weighted[], x0: number, y0: number, x1: number, y1: number, 
 };
 
 /**
- * Squarified treemap over `items`, processed in the order given. Classic squarify sorts children
- * descending by weight first for optimal aspect ratios, but that reshuffles every item's position
- * whenever any single weight changes (a bumped weight jumps its item to the front, and everything
- * else reflows around it) — surprising for a UI grid where items should hold their place as their
- * neighbors resize. Keeping input order trades a bit of aspect-ratio optimality (still bounded, see
- * `tests/grid-pack.test.ts`) for positions that stay stable and an "organic" scatter of sizes
- * instead of a strict biggest-to-smallest sort.
+ * Squarified treemap over `items` (must be pre-sorted, descending by weight — that's not
+ * stylistic, it's what keeps the row-growing loop below near-square at all; fed unsorted, a heavy
+ * item can land in a row with the wrong neighbors and stretch into a sliver, see
+ * `tests/grid-pack.test.ts` for how much worse). The trade-off this buys: an item's rank among the
+ * others, and so its position, can shift when its weight crosses another item's — inherent to
+ * *every* aspect-ratio-optimal treemap, not a bug in this port (see `docs/why.md`).
  */
 const squarify = (items: Weighted[], x0: number, y0: number, x1: number, y1: number, out: Map<GridInput['id'], Rect>): void => {
   const n = items.length;
@@ -133,9 +132,10 @@ export const packGrid = <T extends GridInput>(items: T[], { cols = 7, rows = 7 }
 
   const rowsUsed = neededRows(items.length, cols, rows);
   const weighted: Weighted[] = items.map((it) => ({ id: it.id, weight: it.weight && it.weight > 0 ? it.weight : 1 }));
+  const sorted = [...weighted].sort((a, b) => b.weight - a.weight);
 
   const out = new Map<GridInput['id'], Rect>();
-  squarify(weighted, 0, 0, cols, rowsUsed, out);
+  squarify(sorted, 0, 0, cols, rowsUsed, out);
 
   return items.map((it) => {
     const r = out.get(it.id) as Rect;
