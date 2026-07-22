@@ -20,7 +20,7 @@ export type GridItemProps = {
   weight?: number;
   /**
    * Pin this item to exactly `cols` grid columns instead of an auto-computed, weight-driven width.
-   * Giving *any* item a `cols` or `rows` switches the whole `<GridPack>` from the free-fill
+   * Giving *any* item a `cols` or `rows` switches the whole `<Grid>` from the free-fill
    * treemap to native CSS Grid (`grid-auto-flow: dense`) — see `fill`'s doc for what that trades
    * away. If only `cols` is given, the row span still comes from `weight` (rounded).
    */
@@ -29,10 +29,10 @@ export type GridItemProps = {
   rows?: number;
 };
 
-/** Marker component — GridPack reads its props and renders its children in the assigned block. */
+/** Marker component — Grid reads its props and renders its children in the assigned block. */
 export const GridItem = (_: GridItemProps): null => null;
 
-export type GridPackProps = {
+export type GridProps = {
   children?: ReactNode;
   cols?: number;
   rows?: number;
@@ -70,7 +70,7 @@ export const spanFor = (props: GridItemProps, cols: number): { colSpan: number; 
   return { colSpan: Math.min(cols, side), rowSpan: side };
 };
 
-export const GridPack = ({
+export const Grid = ({
   children,
   cols = 7,
   rows = 7,
@@ -81,7 +81,7 @@ export const GridPack = ({
   showGrid = false,
   className,
   style,
-}: GridPackProps) => {
+}: GridProps) => {
   const items = Children.toArray(children).filter(isValidElement) as React.ReactElement<GridItemProps>[];
   const weights = items.map((c) => (typeof c.props.weight === 'number' && c.props.weight > 0 ? c.props.weight : 1));
   const pinned = items.some((c) => c.props.cols != null || c.props.rows != null);
