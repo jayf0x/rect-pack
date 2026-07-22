@@ -1,6 +1,6 @@
 {
   "name": "weighted-grid",
-  "version": "1.0.2",
+  "version": "1.0.3",
   "type": "module",
   "description": "A zero-dependency, weight-driven, content-agnostic React grid that fills its container using a squarified treemap.",
   "author": "jayF0x",
