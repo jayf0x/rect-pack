@@ -1,13 +1,23 @@
-# rect-pack
+# weighted-grid
 
-[![CI](https://github.com/jayf0x/rect-pack/actions/workflows/ci.yml/badge.svg)](https://github.com/jayf0x/rect-pack/actions/workflows/ci.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+<!-- README_HEAD:START -->
+
+[![npm version](https://img.shields.io/npm/v/react-pack)](https://www.npmjs.com/package/react-pack)
+[![license](https://img.shields.io/npm/l/react-pack)](./LICENSE)
+[![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](./tsconfig.json)
+[![CI](https://github.com/jayF0x/react-pack/actions/workflows/ci.yml/badge.svg)](https://github.com/jayF0x/react-pack/actions/workflows/ci.yml)
+
+![Preview](./assets/preview.png)
+
+> ⭐ **Star this [repository](https://github.com/jayF0x/react-pack) if you'd like to support its growth**
+
+<!-- README_HEAD:END -->
 
 A zero-dependency, weight-driven, content-agnostic React grid that fills its container. Drop in
 arbitrary children, optionally tag a few with a `weight`, and the layout resolves itself — no
-coordinates, no manual math. See [`docs/why.md`](docs/why.md) for the product rationale.
+coordinates, no manual math.
 
-**[▶ Live demo](https://jayf0x.github.io/rect-pack/)**
+**[▶ Live demo](https://jayf0x.github.io/weighted-grid/)**
 
 ## Features
 
@@ -19,17 +29,17 @@ coordinates, no manual math. See [`docs/why.md`](docs/why.md) for the product ra
 ## Install
 
 ```bash
-bun add rect-pack
+bun add weighted-grid
 ```
-
+||
 ```bash
-npm install rect-pack
+npm install weighted-grid
 ```
 
 ## Quick start
 
 ```tsx
-import { GridPack, GridItem } from 'rect-pack/react';
+import { GridPack, GridItem } from 'weighted-grid/react';
 
 <GridPack cols={7} fill>
   <GridItem weight={4}>hero</GridItem>
@@ -42,7 +52,7 @@ import { GridPack, GridItem } from 'rect-pack/react';
 Or use the placement algorithm directly, framework-free:
 
 ```typescript
-import { packGrid } from 'rect-pack';
+import { packGrid } from 'weighted-grid';
 
 const placed = packGrid([
   { id: 'hero', weight: 4 },
@@ -63,11 +73,6 @@ bun run format        # biome check --write
 bun run demo:dev      # local demo site
 ```
 
-## Publishing
-
-`bun run npm:deploy` (optionally `BUMP=minor`) bumps the version, builds, tags, and pushes.
-The [`publish`](.github/workflows/publish.yml) workflow publishes the new tag to npm.
-
 ## License
 
-MIT
+[MIT](./LICENSE) © [jayF0x](https://github.com/jayf0x)

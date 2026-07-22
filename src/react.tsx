@@ -1,5 +1,5 @@
 /**
- * `@rect-pack/react` — thin React wrapper over {@link ./grid-pack}.
+ * `@weighted-grid/react` — thin React wrapper over {@link ./grid-pack}.
  *
  * The core computes fractional rects (a squarified treemap); the DOM does everything else via
  * absolute positioning in percentages, so the container fills exactly with no gaps regardless of

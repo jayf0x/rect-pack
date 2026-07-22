@@ -43,7 +43,7 @@ export function App() {
         <PinnedExample />
       </main>
 
-      <footer className="px-8 pb-10 text-center text-[12px] text-ink/30">MIT · @rect-pack/react</footer>
+      <footer className="px-8 pb-10 text-center text-[12px] text-ink/30">MIT · @weighted-grid/react</footer>
     </div>
   );
 }

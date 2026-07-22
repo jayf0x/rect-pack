@@ -19,7 +19,7 @@ export default defineConfig({
     minify: 'oxc',
     sourcemap: true,
     rollupOptions: {
-      // Keep React out of the bundle so `@rect-pack/react` tree-shakes away when unused.
+      // Keep React out of the bundle so `@weighted-grid/react` tree-shakes away when unused.
       external: ['react', 'react-dom', 'react/jsx-runtime'],
       output: { exports: 'named' },
     },

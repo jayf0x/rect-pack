@@ -1,4 +1,4 @@
-import { GridItem, GridPack } from 'rect-pack/react';
+import { GridItem, GridPack } from 'weighted-grid/react';
 import { Block } from './Block.jsx';
 
 /** One labeled GridPack instance. Pass `fill` to switch between the two flows the library

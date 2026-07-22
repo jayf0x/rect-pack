@@ -1,10 +1,10 @@
 # AGENTS.md
 
-Working notes for agents/contributors on `rect-pack`.
+Working notes for agents/contributors on `weighted-grid`.
 
 ## What this is
 
-A zero-dependency TypeScript library + `@rect-pack/react` component that lays out a weighted,
+A zero-dependency TypeScript library + `@weighted-grid/react` component that lays out a weighted,
 content-agnostic grid filling its container. See `docs/why.md` for the product rationale and
 `handover.md` for the current roadmap. **Read both before making structural changes.**
 
@@ -12,7 +12,7 @@ content-agnostic grid filling its container. See `docs/why.md` for the product r
 
 - `src/grid-pack.ts` — the allocator (`packGrid`). The heart of the library: a squarified treemap
   in continuous `[0,1]x[0,1]` space. Output is fractional (`{ id, x, y, w, h }`), not integer cells.
-- `src/react.tsx` — `<GridPack>` / `<GridItem>`, the `@rect-pack/react` entry. Renders placements as
+- `src/react.tsx` — `<GridPack>` / `<GridItem>`, the `@weighted-grid/react` entry. Renders placements as
   absolutely-positioned percentage boxes. React is an **optional** peer dependency.
 - `src/index.ts` — main entry; re-exports `packGrid` and its types. No other engine lives here.
 - `tests/grid-pack.test.ts` — invariant tests (exact fill, no overlap, in-bounds, area fidelity,

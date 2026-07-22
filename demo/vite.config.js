@@ -5,10 +5,10 @@ import tailwindcss from '@tailwindcss/vite';
 import { defineConfig } from 'vite';
 
 // Import the library straight from source so the demo tracks local changes.
-const rectPack = fileURLToPath(new URL('../src/index.ts', import.meta.url));
-const rectPackReact = fileURLToPath(new URL('../src/react.tsx', import.meta.url));
+const weightedGrid = fileURLToPath(new URL('../src/index.ts', import.meta.url));
+const weightedGridReact = fileURLToPath(new URL('../src/react.tsx', import.meta.url));
 
-// react is an *optional* peer dep of rect-pack, so vite stubs it when resolving ../src/react.tsx.
+// react is an *optional* peer dep of weighted-grid, so vite stubs it when resolving ../src/react.tsx.
 // Force it onto the demo's real react install.
 const require = createRequire(import.meta.url);
 const reactMod = require.resolve('react');
@@ -16,7 +16,7 @@ const jsxRuntime = require.resolve('react/jsx-runtime');
 const jsxDevRuntime = require.resolve('react/jsx-dev-runtime');
 
 export default defineConfig({
-  base: process.env.GITHUB_PAGES ? '/rect-pack/' : '/',
+  base: process.env.GITHUB_PAGES ? '/weighted-grid/' : '/',
   build: {
     target: 'es2020',
     minify: 'oxc',
@@ -25,8 +25,8 @@ export default defineConfig({
   plugins: [react(), tailwindcss()],
   resolve: {
     alias: [
-      { find: 'rect-pack/react', replacement: rectPackReact },
-      { find: 'rect-pack', replacement: rectPack },
+      { find: 'weighted-grid/react', replacement: weightedGridReact },
+      { find: 'weighted-grid', replacement: weightedGrid },
       { find: /^react\/jsx-runtime$/, replacement: jsxRuntime },
       { find: /^react\/jsx-dev-runtime$/, replacement: jsxDevRuntime },
       { find: /^react$/, replacement: reactMod },

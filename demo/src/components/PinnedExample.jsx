@@ -1,4 +1,4 @@
-import { GridItem, GridPack } from 'rect-pack/react';
+import { GridItem, GridPack } from 'weighted-grid/react';
 import { tintFor } from '../utils/colors.js';
 
 const Cell = ({ i, label }) => (
