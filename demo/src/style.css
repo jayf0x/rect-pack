@@ -1,18 +1,19 @@
 @import "tailwindcss";
 
 @theme {
-  --font-display: "Rajdhani", sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: "Fraunces", serif;
+  --font-sans: "IBM Plex Sans", sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, monospace;
 
-  --color-ink: #060a10;
-  --color-panel: #0c131d;
-  --color-line: #1c2836;
-  --color-cyan: #00e5c7;
-  --color-amber: #ff7a1a;
+  --color-page: #faf9f7;
+  --color-panel: #f3f1ee;
+  --color-line: #e7e3dd;
+  --color-ink: #17140f;
+  --color-accent: #d1470c;
 }
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
 }
 
 html,
@@ -23,39 +24,16 @@ body,
 
 body {
   margin: 0;
-  background: var(--color-ink);
-  color: #cfe3e8;
-  font-family: var(--font-mono);
+  background: var(--color-page);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
-}
-
-/* Blueprint grid: fine 1px lines every 24px, bold lines every 5th cell. */
-.grid-field {
-  background-color: var(--color-ink);
-  background-image:
-    linear-gradient(to right, color-mix(in oklab, var(--color-cyan) 14%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--color-cyan) 14%, transparent) 1px, transparent 1px),
-    linear-gradient(to right, color-mix(in oklab, var(--color-cyan) 28%, transparent) 1px, transparent 1px),
-    linear-gradient(to bottom, color-mix(in oklab, var(--color-cyan) 28%, transparent) 1px, transparent 1px);
-  background-size:
-    24px 24px,
-    24px 24px,
-    120px 120px,
-    120px 120px;
-  background-position: -1px -1px;
-}
-
-.crosshair-corner::before,
-.crosshair-corner::after {
-  content: "";
-  position: absolute;
-  background: color-mix(in oklab, var(--color-cyan) 60%, transparent);
 }
 
 @keyframes pop-in {
   from {
     opacity: 0;
-    transform: scale(0.55);
+    transform: scale(0.9);
   }
   to {
     opacity: 1;
@@ -64,35 +42,12 @@ body {
 }
 
 .rect-enter {
-  animation: pop-in 320ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
-}
-
-@keyframes scan {
-  from {
-    transform: translateY(-100%);
-  }
-  to {
-    transform: translateY(100%);
-  }
-}
-
-.scanline::after {
-  content: "";
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 0%,
-    color-mix(in oklab, var(--color-cyan) 18%, transparent) 50%,
-    transparent 100%
-  );
-  animation: scan 2.4s linear infinite;
-  pointer-events: none;
+  animation: pop-in 220ms cubic-bezier(0.22, 1, 0.36, 1) backwards;
 }
 
 ::selection {
-  background: var(--color-cyan);
-  color: var(--color-ink);
+  background: var(--color-accent);
+  color: white;
 }
 
 input[type="range"] {
@@ -100,25 +55,24 @@ input[type="range"] {
   appearance: none;
   height: 2px;
   background: var(--color-line);
-  border-radius: 0;
+  border-radius: 1px;
 }
 
 input[type="range"]::-webkit-slider-thumb {
   -webkit-appearance: none;
   appearance: none;
-  width: 12px;
-  height: 12px;
-  background: var(--color-cyan);
-  border-radius: 1px;
+  width: 13px;
+  height: 13px;
+  background: var(--color-accent);
+  border-radius: 50%;
   cursor: pointer;
-  box-shadow: 0 0 8px color-mix(in oklab, var(--color-cyan) 70%, transparent);
 }
 
 input[type="range"]::-moz-range-thumb {
-  width: 12px;
-  height: 12px;
-  background: var(--color-cyan);
+  width: 13px;
+  height: 13px;
+  background: var(--color-accent);
   border: none;
-  border-radius: 1px;
+  border-radius: 50%;
   cursor: pointer;
 }

@@ -3,16 +3,18 @@
 [![CI](https://github.com/jayf0x/rect-pack/actions/workflows/ci.yml/badge.svg)](https://github.com/jayf0x/rect-pack/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A high-performance TypeScript library for 2D rectangle packing — area-based packing plus Guillotine bin packing with multiple heuristics for optimal space utilization.
+A zero-dependency, weight-driven, content-agnostic React grid that fills its container. Drop in
+arbitrary children, optionally tag a few with a `weight`, and the layout resolves itself — no
+coordinates, no manual math. See [`docs/why.md`](docs/why.md) for the product rationale.
 
 **[▶ Live demo](https://jayf0x.github.io/rect-pack/)**
 
 ## Features
 
-- Area-based packing (`rectanglePacker`) and Guillotine bin packing (`GuillotineBinPack`)
-- Full TypeScript types, ESM + CJS builds
-- Zero runtime dependencies
-- Immutable and in-place (`rectanglePackerMutation`) APIs
+- Placement by a **squarified treemap** — each item's area is proportional to its `weight`, on
+  both axes, so aspect ratios stay near-square instead of collapsing into slivers
+- One `fill` prop toggles "stretch to fill the container" vs. "fixed columns, flows downward"
+- Full TypeScript types, ESM + CJS builds, zero runtime dependencies (`react` is an optional peer)
 
 ## Install
 
@@ -22,34 +24,28 @@ npm install rect-pack
 
 ## Quick start
 
-### Area-based packing
+```tsx
+import { GridPack, GridItem } from 'rect-pack/react';
 
-```typescript
-import { rectanglePacker } from 'rect-pack';
-
-const packed = rectanglePacker([
-  { width: 100, height: 50 },
-  { width: 75, height: 75 },
-  { width: 200, height: 100 },
-]);
-// → [{ width, height, x, y }, ...]  input array is left untouched
+<GridPack cols={7} fill>
+  <GridItem weight={4}>hero</GridItem>
+  <GridItem>a</GridItem>
+  <GridItem>b</GridItem>
+  <GridItem>c</GridItem>
+</GridPack>;
 ```
 
-Use `rectanglePackerMutation(rects)` to assign `x`/`y` on the input array in place.
-
-### Guillotine bin packing
+Or use the placement algorithm directly, framework-free:
 
 ```typescript
-import { GuillotineBinPack, Rect } from 'rect-pack';
+import { packGrid } from 'rect-pack';
 
-const packer = new GuillotineBinPack<Rect>(500, 400);
-packer.InsertSizes(
-  [new Rect(0, 0, 100, 100), new Rect(0, 0, 50, 200)],
-  /* merge */ true,
-  /* rectChoice */ 0,
-  /* splitMethod */ 0,
-);
-console.log(packer.Occupancy()); // fraction of the bin filled, 0..1
+const placed = packGrid([
+  { id: 'hero', weight: 4 },
+  { id: 'a' },
+  { id: 'b' },
+]);
+// → [{ id, x, y, w, h }, ...]  fractions of the unit square (0..1), tiling it exactly
 ```
 
 ## Development

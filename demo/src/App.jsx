@@ -1,252 +1,50 @@
-import { rectanglePacker } from 'rect-pack';
-import { GridItem, GridPack } from 'rect-pack/react';
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-
-/** A demo cell: colored box that fills whatever grid slot GridPack assigns it. */
-function Cell({ i, label, highlight }) {
-  return (
-    <div
-      className={`rect-enter flex h-full w-full items-center justify-center overflow-hidden border text-[10px] font-mono ${highlight ? 'ring-2 ring-white/70 text-white' : 'text-ink/80'}`}
-      style={{
-        background: `color-mix(in oklab, ${PALETTE[i % PALETTE.length]} 55%, transparent)`,
-        borderColor: PALETTE[i % PALETTE.length],
-        animationDelay: `${Math.min(i * 14, 500)}ms`,
-      }}
-    >
-      {label}
-    </div>
-  );
-}
-
-const PALETTE = ['#00e5c7', '#ff7a1a', '#4ea1ff', '#ffd23f', '#ff5c8a', '#7ce38b'];
-
-const rand = (min, max) => Math.floor(min + Math.random() * (max - min + 1));
-
-function pack(count, minSize, maxSize) {
-  const sizes = Array.from({ length: count }, () => ({
-    width: rand(minSize, maxSize),
-    height: rand(minSize, maxSize),
-  }));
-  const t0 = performance.now();
-  const rects = rectanglePacker(sizes);
-  const ms = performance.now() - t0;
-  const binWidth = Math.max(...rects.map((r) => r.x + r.width));
-  const binHeight = Math.max(...rects.map((r) => r.y + r.height));
-  const used = rects.reduce((s, r) => s + r.width * r.height, 0);
-  return { rects, binWidth, binHeight, ms, occupancy: (used / (binWidth * binHeight)) * 100 };
-}
-
-function Stat({ label, value }) {
-  return (
-    <div className="flex flex-col gap-0.5 border-l border-line/60 pl-3">
-      <span className="text-[10px] uppercase tracking-[0.18em] text-cyan/50">{label}</span>
-      <span className="font-display text-lg font-semibold text-cyan tabular-nums">{value}</span>
-    </div>
-  );
-}
-
-function Slider({ label, value, min, max, onInput }) {
-  return (
-    <label className="flex flex-col gap-1.5 text-xs">
-      <span className="flex items-center justify-between uppercase tracking-[0.14em] text-[#7fa]">
-        <span>{label}</span>
-        <span className="text-cyan tabular-nums">{value}</span>
-      </span>
-      <input
-        type="range"
-        min={min}
-        max={max}
-        value={value}
-        onInput={(e) => onInput(Number(e.currentTarget.value))}
-      />
-    </label>
-  );
-}
+import { useMemo, useState } from 'react';
+import { Header } from './components/Header.jsx';
+import { Controls } from './components/Controls.jsx';
+import { DemoPanel } from './components/DemoPanel.jsx';
+import { buildBlocks } from './utils/blocks.js';
 
 export function App() {
-  const [count, setCount] = useState(22);
-  const [minSize, setMinSize] = useState(20);
-  const [maxSize, setMaxSize] = useState(130);
-  const [result, setResult] = useState(() => pack(22, 20, 130));
-  const [runId, setRunId] = useState(0);
-  const [gridCols, setGridCols] = useState(7);
-  const [heroWeight, setHeroWeight] = useState(6);
-  const stageRef = useRef(null);
-  const [stageSize, setStageSize] = useState({ w: 800, h: 500 });
+  const [count, setCount] = useState(20);
+  const [cols, setCols] = useState(7);
+  const [heroWeight, setHeroWeight] = useState(4);
 
-  const shuffle = useCallback(() => {
-    setResult(pack(count, minSize, Math.max(maxSize, minSize)));
-    setRunId((n) => n + 1);
-  }, [count, minSize, maxSize]);
-
-  useEffect(() => {
-    shuffle();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [count, minSize, maxSize]);
-
-  useEffect(() => {
-    const el = stageRef.current;
-    if (!el) return;
-    const ro = new ResizeObserver(([entry]) => {
-      const { width, height } = entry.contentRect;
-      setStageSize({ w: width, h: height });
-    });
-    ro.observe(el);
-    return () => ro.disconnect();
-  }, []);
-
-  useEffect(() => {
-    const onKey = (e) => {
-      if (e.code === 'Space' && document.activeElement?.tagName !== 'INPUT') {
-        e.preventDefault();
-        shuffle();
-      }
-    };
-    window.addEventListener('keydown', onKey);
-    return () => window.removeEventListener('keydown', onKey);
-  }, [shuffle]);
-
-  const scale = useMemo(() => {
-    const pad = 32;
-    return Math.min((stageSize.w - pad) / result.binWidth, (stageSize.h - pad) / result.binHeight, 4);
-  }, [stageSize, result]);
+  const blocks = useMemo(() => buildBlocks(count, heroWeight), [count, heroWeight]);
 
   return (
-    <div className="grid-field relative min-h-screen">
-      <header className="relative z-10 flex flex-wrap items-center justify-between gap-4 border-b border-line px-6 py-4">
-        <div className="flex items-baseline gap-3">
-          <h1 className="font-display text-2xl font-bold tracking-wide text-white">
-            rect<span className="text-cyan">‑</span>pack
-          </h1>
-          <span className="rounded-sm border border-line px-1.5 py-0.5 text-[10px] uppercase tracking-[0.14em] text-[#7fa]">
-            area‑fit packer
-          </span>
+    <div className="min-h-screen bg-page">
+      <Header />
+
+      <main className="mx-auto flex max-w-5xl flex-col gap-6 px-8 pb-16">
+        <Controls
+          count={count}
+          setCount={setCount}
+          cols={cols}
+          setCols={setCols}
+          heroWeight={heroWeight}
+          setHeroWeight={setHeroWeight}
+        />
+
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
+          <DemoPanel
+            title="fill — stretches to fill"
+            caption="Rows are 1fr, so the grid fills the container's height exactly. Drag the bottom-right corner; it reflows with zero re-pack."
+            blocks={blocks}
+            cols={cols}
+            fill
+          />
+          <DemoPanel
+            title="fixed columns — flows down"
+            caption="Same placement, but rows are a fixed height and the grid grows downward instead."
+            blocks={blocks}
+            cols={cols}
+            fill={false}
+            rowHeight={72}
+          />
         </div>
-        <div className="flex items-center gap-4 text-xs uppercase tracking-[0.14em] text-[#7fa]">
-          <a
-            className="transition-colors hover:text-cyan"
-            href="https://github.com/jayf0x/rect-pack"
-            target="_blank"
-            rel="noreferrer"
-          >
-            GitHub ↗
-          </a>
-          <a
-            className="transition-colors hover:text-cyan"
-            href="https://www.npmjs.com/package/rect-pack"
-            target="_blank"
-            rel="noreferrer"
-          >
-            npm ↗
-          </a>
-        </div>
-      </header>
-
-      <main className="relative z-10 mx-auto grid max-w-6xl grid-cols-1 gap-6 px-6 py-8 lg:grid-cols-[280px_1fr]">
-        <aside className="flex flex-col gap-6 border border-line bg-panel/80 p-5 backdrop-blur-sm lg:sticky lg:top-8 lg:self-start">
-          <p className="text-sm leading-relaxed text-[#9fc]">
-            Drops <strong className="text-cyan">N</strong> random rectangles into the smallest bounding box the
-            area‑fit algorithm can find. Tune the knobs, then pack again.
-          </p>
-
-          <div className="flex flex-col gap-4">
-            <Slider label="Rectangles" value={count} min={3} max={60} onInput={setCount} />
-            <Slider label="Min size" value={minSize} min={8} max={maxSize} onInput={setMinSize} />
-            <Slider label="Max size" value={maxSize} min={minSize} max={220} onInput={setMaxSize} />
-          </div>
-
-          <button
-            type="button"
-            onClick={shuffle}
-            className="group relative overflow-hidden border border-amber bg-amber/10 px-4 py-2.5 font-display text-sm font-semibold uppercase tracking-[0.18em] text-amber transition-colors hover:bg-amber hover:text-ink"
-          >
-            Pack again
-            <span className="ml-2 opacity-60 group-hover:opacity-90">⎵</span>
-          </button>
-
-          <div className="grid grid-cols-2 gap-y-4">
-            <Stat label="Bin" value={`${result.binWidth}×${result.binHeight}`} />
-            <Stat label="Fill" value={`${result.occupancy.toFixed(1)}%`} />
-            <Stat label="Count" value={result.rects.length} />
-            <Stat label="Pack time" value={`${result.ms.toFixed(2)}ms`} />
-          </div>
-        </aside>
-
-        <section
-          ref={stageRef}
-          className="scanline relative min-h-[420px] overflow-hidden border border-line bg-panel/40"
-        >
-          <div
-            className="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2"
-            style={{ width: result.binWidth * scale, height: result.binHeight * scale }}
-          >
-            <div className="pointer-events-none absolute -inset-px border border-cyan/40" />
-            {result.rects.map((r, i) => (
-              <div
-                key={`${runId}-${i}`}
-                className="rect-enter absolute flex items-end justify-start overflow-hidden border p-1 text-[9px] leading-none text-ink/70"
-                style={{
-                  left: r.x * scale,
-                  top: r.y * scale,
-                  width: r.width * scale,
-                  height: r.height * scale,
-                  background: `color-mix(in oklab, ${PALETTE[i % PALETTE.length]} 55%, transparent)`,
-                  borderColor: PALETTE[i % PALETTE.length],
-                  animationDelay: `${Math.min(i * 14, 500)}ms`,
-                }}
-                title={`${r.width} × ${r.height}`}
-              >
-                {r.width * scale > 26 && r.height * scale > 16 ? (
-                  <span className="font-mono">
-                    {r.width}×{r.height}
-                  </span>
-                ) : null}
-              </div>
-            ))}
-          </div>
-        </section>
       </main>
 
-      <section className="relative z-10 mx-auto max-w-6xl px-6 pb-8">
-        <div className="mb-3 flex flex-wrap items-center justify-between gap-3">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-[0.18em] text-cyan">
-            Auto grid · &lt;GridPack&gt; fills the box, no gaps
-          </h2>
-          <div className="flex items-center gap-5">
-            <label className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[#7fa]">
-              Cols
-              <input type="range" min={2} max={12} value={gridCols} onInput={(e) => setGridCols(Number(e.currentTarget.value))} />
-              <span className="text-cyan tabular-nums">{gridCols}</span>
-            </label>
-            <label className="flex items-center gap-2 text-[11px] uppercase tracking-[0.14em] text-[#7fa]">
-              Hero weight
-              <input type="range" min={1} max={20} value={heroWeight} onInput={(e) => setHeroWeight(Number(e.currentTarget.value))} />
-              <span className="text-amber tabular-nums">{heroWeight}×</span>
-            </label>
-          </div>
-        </div>
-        <div className="h-[380px] w-full resize-y overflow-auto border border-line bg-panel/40 p-1.5">
-          <GridPack cols={gridCols} rows={7} gap={6} className="h-full w-full">
-            <GridItem weight={heroWeight}>
-              <Cell i={0} label={`HERO ${heroWeight}×`} highlight />
-            </GridItem>
-            {Array.from({ length: count - 1 }, (_, k) => (
-              <GridItem key={k} weight={k % 7 === 0 ? 2 : 1}>
-                <Cell i={k + 1} label={k % 7 === 0 ? '2×' : '1×'} />
-              </GridItem>
-            ))}
-          </GridPack>
-        </div>
-        <p className="mt-2 text-[11px] text-[#567]">
-          {count} items, no positions given. One fixed <span className="text-amber">HERO</span> block —
-          drag its weight and watch the rest re-flow around it. Drag the bottom edge to resize:
-          the browser reflows the CSS grid with zero re-pack.
-        </p>
-      </section>
-
-      <footer className="relative z-10 px-6 pb-8 text-center text-[10px] uppercase tracking-[0.18em] text-[#567]">
-        MIT licensed · zero dependencies · press space to repack
-      </footer>
+      <footer className="px-8 pb-10 text-center text-[12px] text-ink/30">MIT · @rect-pack/react</footer>
     </div>
   );
 }

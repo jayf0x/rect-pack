@@ -1,47 +1,25 @@
 /**
  * `@rect-pack/react` — thin React wrapper over {@link ./grid-pack}.
  *
- * The core computes cell spans; CSS Grid does everything else. Container resize is handled by the
- * browser (`1fr` tracks), so there is no re-pack on resize — the component only re-packs when the
- * set of items or their weights change.
+ * The core computes fractional rects (a squarified treemap); the DOM does everything else via
+ * absolute positioning in percentages, so the container fills exactly with no gaps regardless of
+ * its actual pixel aspect. Sizing is driven purely by each item's `weight` (relative area) — there
+ * are no pixel sizes, because a grid that resizes with its container has no use for fixed pixels.
+ * Container resize is handled by the browser (percentages), so there is no re-pack on resize — the
+ * component only re-packs when the items or weights change.
  *
  * `react` is a peer dependency (not bundled) so this stays tree-shakeable and framework-neutral.
  */
-import {
-  Children,
-  type CSSProperties,
-  isValidElement,
-  type ReactNode,
-  useMemo,
-} from 'react';
-import { packGrid } from './grid-pack';
-
-/** Turns a size hint into a relative weight. Fixed px sizes just mean "wants more cells". */
-const toWeight = (props: GridItemProps): number => {
-  if (typeof props.weight === 'number') return props.weight;
-  // ponytail: px hints resolved to a weight, not a hard size — matches the soft-grid model.
-  // Area of the hint (in px^2) relative to a nominal 160px cell reads as "how many cells".
-  const px = (v: GridItemProps['width']): number | null =>
-    typeof v === 'number' ? v : typeof v === 'string' && v.endsWith('px') ? Number.parseFloat(v) : null;
-  const w = px(props.width);
-  const h = px(props.height);
-  if (w == null && h == null) return 1;
-  const side = 160;
-  return Math.max(0.25, ((w ?? side) * (h ?? side)) / (side * side));
-};
+import { Children, type CSSProperties, isValidElement, type ReactNode, useMemo } from 'react';
+import { neededRows, packGrid } from './grid-pack';
 
 export type GridItemProps = {
   children?: ReactNode;
-  /** Explicit relative area. Overrides width/height hints. */
+  /** Relative area. Defaults to 1; a 2 gets ~twice the space of a 1. */
   weight?: number;
-  /** Size hint (px number or `"200px"`); resolved to a weight, not pinned exactly. */
-  width?: number | string;
-  height?: number | string;
-  className?: string;
-  style?: CSSProperties;
 };
 
-/** Marker component — GridPack reads its props; it renders its children in an assigned cell block. */
+/** Marker component — GridPack reads its props and renders its children in the assigned block. */
 export const GridItem = (_: GridItemProps): null => null;
 
 export type GridPackProps = {
@@ -49,6 +27,14 @@ export type GridPackProps = {
   cols?: number;
   rows?: number;
   gap?: number | string;
+  /**
+   * `true` (default): stretch to fill the container's height exactly.
+   * `false`: keep the columns fixed and flow downward at `rowHeight` per row (the container grows).
+   * The item placement is identical either way — only the overall height changes.
+   */
+  fill?: boolean;
+  /** Row height when `fill` is false. Ignored when filling. */
+  rowHeight?: number | string;
   showGrid?: boolean;
   className?: string;
   style?: CSSProperties;
@@ -59,42 +45,48 @@ export const GridPack = ({
   cols = 7,
   rows = 7,
   gap = 8,
+  fill = true,
+  rowHeight = 96,
   showGrid = false,
   className,
   style,
 }: GridPackProps) => {
   const items = Children.toArray(children).filter(isValidElement) as React.ReactElement<GridItemProps>[];
+  const weights = items.map((c) => (typeof c.props.weight === 'number' && c.props.weight > 0 ? c.props.weight : 1));
 
   const placements = useMemo(
-    () =>
-      packGrid(
-        items.map((child, i) => ({ id: i, weight: toWeight(child.props) })),
-        { cols, rows },
-      ),
+    () => packGrid(weights.map((weight, id) => ({ id, weight })), { cols, rows }),
     // Weights + count drive the layout; re-pack only when those change.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [items.map((c) => toWeight(c.props)).join(','), cols, rows],
+    [weights.join(','), cols, rows],
   );
 
-  const gridStyle: CSSProperties = {
-    display: 'grid',
-    gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gridAutoRows: '1fr',
-    gap: typeof gap === 'number' ? `${gap}px` : gap,
+  const gapValue = typeof gap === 'number' ? `${gap}px` : gap;
+  const rowHeightValue = typeof rowHeight === 'number' ? `${rowHeight}px` : rowHeight;
+
+  const containerStyle: CSSProperties = {
+    position: 'relative',
+    width: '100%',
+    ...(fill ? { height: '100%' } : { height: `calc(${rowHeightValue} * ${neededRows(items.length, cols, rows)})` }),
     ...(showGrid
-      ? { backgroundSize: `calc(100% / ${cols}) 100%`, backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)' }
+      ? { backgroundImage: 'linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)', backgroundSize: `calc(100% / ${cols}) 100%` }
       : {}),
     ...style,
   };
 
   return (
-    <div className={className} style={gridStyle}>
+    <div className={className} style={containerStyle}>
       {placements.map((p, i) => (
         <div
           key={p.id}
           style={{
-            gridColumn: `${p.col + 1} / span ${p.colSpan}`,
-            gridRow: `${p.row + 1} / span ${p.rowSpan}`,
+            position: 'absolute',
+            left: `${p.x * 100}%`,
+            top: `${p.y * 100}%`,
+            width: `${p.w * 100}%`,
+            height: `${p.h * 100}%`,
+            padding: `calc(${gapValue} / 2)`,
+            boxSizing: 'border-box',
             minWidth: 0,
             minHeight: 0,
           }}
