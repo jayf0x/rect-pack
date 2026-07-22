@@ -45,6 +45,7 @@
     "lint:fix": "biome lint --write ./src",
     "demo:dev": "cd demo && bun install && bun run dev",
     "demo:deploy": "bash ./scripts/deploy-pages.sh",
+    "npm:bootstrap": "bash ./scripts/bootstrap-npm.sh",
     "npm:deploy": "bash ./scripts/publish-npm.sh",
     "size": "size-limit"
   },

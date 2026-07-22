@@ -10,6 +10,13 @@ if ! git diff --quiet || ! git diff --cached --quiet; then
   exit 1
 fi
 
+NAME=$(node -p "require('./package.json').name")
+if ! npm view "$NAME" version >/dev/null 2>&1; then
+  echo "✗ $NAME has never been published — run scripts/bootstrap-npm.sh first (trusted"
+  echo "  publishing can't be configured on npmjs.com until a first version exists)"
+  exit 1
+fi
+
 # ── build + typecheck + test ─────────────────────────────────────────────────
 bun run build
 bun run typecheck
@@ -17,8 +24,8 @@ bun run test
 bun run format
 
 # ── version bump ──────────────────────────────────────────────────────────────
-# BUMP=patch|minor|major, or pass an explicit version: BUMP=1.2.0
-NEW=$(bun "$(dirname "$0")/patch-json.mjs" "${BUMP:-patch}")
+# This release flow is patch-only; any non-patch BUMP value is rejected.
+NEW=$(bun "$(dirname "$0")/patch-json.mjs")
 TAG="v$NEW"
 
 if git rev-parse "$TAG" >/dev/null 2>&1; then
