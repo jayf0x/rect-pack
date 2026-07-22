@@ -21,7 +21,7 @@
     }
   },
   "peerDependencies": {
-    "react": ">=18"
+    "react": "^19"
   },
   "peerDependenciesMeta": {
     "react": {

@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react';
 import { Header } from './components/Header.jsx';
 import { Controls } from './components/Controls.jsx';
 import { DemoPanel } from './components/DemoPanel.jsx';
+import { PinnedExample } from './components/PinnedExample.jsx';
 import { VanillaExample } from './components/VanillaExample.jsx';
 import { buildBlocks } from './utils/blocks.js';
 
@@ -39,6 +40,7 @@ export function App() {
         </div>
 
         <VanillaExample blocks={blocks} cols={cols} />
+        <PinnedExample />
       </main>
 
       <footer className="px-8 pb-10 text-center text-[12px] text-ink/30">MIT · @rect-pack/react</footer>

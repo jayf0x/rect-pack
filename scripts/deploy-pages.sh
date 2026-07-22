@@ -6,11 +6,6 @@ set -euo pipefail
 BRANCH=$(git rev-parse --abbrev-ref HEAD)
 [[ "$BRANCH" != "main" ]] && { echo "✗ Must be on main (currently: $BRANCH)"; exit 1; }
 
-if ! git diff --quiet || ! git diff --cached --quiet; then
-  echo "✗ Uncommitted changes — stash or commit first"
-  exit 1
-fi
-
 git fetch --tags --quiet
 LAST=$(git tag -l 'demo-*' | sed 's/demo-//' | sort -n | tail -1)
 NEXT=$(( ${LAST:-0} + 1 ))

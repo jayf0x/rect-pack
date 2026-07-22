@@ -19,7 +19,7 @@
         "vite-plugin-dts": "^4.0.0",
       },
       "peerDependencies": {
-        "react": ">=18",
+        "react": "^19",
       },
       "optionalPeers": [
         "react",
