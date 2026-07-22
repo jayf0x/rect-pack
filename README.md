@@ -7,6 +7,10 @@
 [![TypeScript](https://img.shields.io/badge/TypeScript-strict-blue)](./tsconfig.json)
 [![CI](https://github.com/jayf0x/weighted-grid/actions/workflows/ci.yml/badge.svg)](https://github.com/jayf0x/weighted-grid/actions/workflows/ci.yml)
 
+
+![Preview](./assets/preview.png)
+
+
 > ⭐ **Star this [repository](https://github.com/jayf0x/weighted-grid) if you'd like to support its growth**
 
 <!-- README_HEAD:END -->
