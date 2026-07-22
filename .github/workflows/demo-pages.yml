@@ -1,8 +1,6 @@
 name: Deploy demo to GitHub Pages
 
 on:
-  push:
-    tags: ['demo-*']
   workflow_dispatch:
 
 permissions:
