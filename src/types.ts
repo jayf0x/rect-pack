@@ -1,4 +1,4 @@
-import type { PropsWithChildren, CSSProperties, ReactNode } from "react";
+import type { CSSProperties, PropsWithChildren, ReactNode } from 'react';
 
 export type GridInput = {
   /** Stable identifier echoed back on the placement. */
@@ -60,9 +60,7 @@ export interface GridProps extends PropsWithChildren {
 /** `GridProps` with every default resolved, minus `children` (consumed separately as `items`).
  * `animate` stays optional — its `undefined` state ("follow prefers-reduced-motion") is
  * meaningful and distinct from `false`. */
-export type ResolvedGridProps = Required<
-  Omit<GridProps, "children" | "style" | "animate">
-> & {
+export type ResolvedGridProps = Required<Omit<GridProps, 'children' | 'style' | 'animate'>> & {
   animate?: boolean;
   style?: CSSProperties;
 };
@@ -71,7 +69,7 @@ export interface FreeGridProps extends ResolvedGridProps {
   items: React.ReactElement<GridItemProps>[];
 }
 
-export interface PinnedGridProps extends Omit<ResolvedGridProps, "animate"> {
+export interface PinnedGridProps extends Omit<ResolvedGridProps, 'animate'> {
   items: React.ReactElement<GridItemProps>[];
 }
 
