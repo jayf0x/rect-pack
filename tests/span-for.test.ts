@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { spanFor } from '../src/react';
+import { spanFor } from '../src/utils';
 
 describe('spanFor', () => {
   test('both cols and rows pinned: exact, weight ignored', () => {

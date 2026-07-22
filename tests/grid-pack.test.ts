@@ -1,5 +1,6 @@
 import { describe, expect, test } from 'bun:test';
-import { type GridInput, packGrid } from '../src/grid-pack';
+import { packGrid } from '../src/grid-pack';
+import type { GridInput } from '../src/types';
 
 const EPS = 1e-9;
 
