@@ -41,34 +41,19 @@ export function mergeDefaults<T extends object>(obj: Partial<T>, defaults: T): T
   return out;
 }
 
-const clampCols = (n: number, cols: number): number => Math.max(1, Math.min(cols, Math.round(n)));
+const clamp = (n: number, max: number): number => Math.max(1, Math.min(max, Math.round(n)));
 
-/** Row/column span for one item in pinned-span mode. The pinned axis is exact; the free axis (if
- * any) falls back to `weight`, and an item with neither pin just aims for a `weight`-sized square. */
+/**
+ * Row/column span for one item. One rule, no overloading: `weight` is the default size for *both*
+ * axes (weight 2 → a 2×2 block, so equal weights are equal squares); `cols`/`rows` override that
+ * per-axis for organic shapes (`cols={4}` on a weight-2 item → 4 wide, 2 tall). Absent everywhere,
+ * an item is 1×1. `colSpan` is clamped to the grid's column count so it can never overflow the row.
+ */
 export const spanFor = (props: GridItemProps, cols: number): { colSpan: number; rowSpan: number } => {
   const weight = typeof props.weight === 'number' && props.weight > 0 ? props.weight : 1;
 
-  if (props.cols != null && props.rows != null) {
-    return {
-      colSpan: clampCols(props.cols, cols),
-      rowSpan: Math.max(1, Math.round(props.rows)),
-    };
-  }
-
-  if (props.cols != null) {
-    return {
-      colSpan: clampCols(props.cols, cols),
-      rowSpan: Math.max(1, Math.round(weight)),
-    };
-  }
-
-  if (props.rows != null) {
-    return {
-      colSpan: clampCols(weight, cols),
-      rowSpan: Math.max(1, Math.round(props.rows)),
-    };
-  }
-
-  const side = Math.max(1, Math.round(Math.sqrt(weight)));
-  return { colSpan: Math.min(cols, side), rowSpan: side };
+  return {
+    colSpan: clamp(props.cols ?? weight, cols),
+    rowSpan: Math.max(1, Math.round(props.rows ?? weight)),
+  };
 };

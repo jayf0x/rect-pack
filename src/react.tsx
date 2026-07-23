@@ -21,20 +21,28 @@ import {
 } from "./utils";
 
 export type GridItemProps = PropsWithChildren<{
-  /** Relative area. Defaults to 1; a 2 gets ~twice the space of a 1. Ignored on any axis pinned
-   * by `cols`/`rows`. */
+  /** Default size for *both* axes: `weight={2}` is a 2×2 block, so equal weights are equal
+   * squares. `cols`/`rows` override it per-axis. Defaults to 1. In `isTreemap` mode this is
+   * relative area instead (see {@link GridProps.isTreemap}). */
   weight?: number;
-  /** Pin this item to exactly `cols` grid columns. Giving *any* item a `cols`/`rows` switches
-   * the whole `<Grid>` to native CSS Grid (`grid-auto-flow: dense`). */
+  /** Exact column span (overrides `weight` on the horizontal axis). Clamped to the grid's `cols`. */
   cols?: number;
-  /** Pin this item to exactly `rows` grid rows. See `cols`. */
+  /** Exact row span (overrides `weight` on the vertical axis). */
   rows?: number;
+  /** Reserve the item's span as deliberate negative space — no border, no focus, no children. */
+  isEmpty?: boolean;
 }>;
 
 export interface GridProps extends PropsWithChildren {
   cols?: number;
   rows?: number;
   gap?: number | string;
+  /** Fill gaps left by odd spans by pulling later items back (`grid-auto-flow: dense`). Default
+   * `true` — forgiving. Set `false` to keep strict source order at the cost of possible gaps. */
+  isPacked?: boolean;
+  /** Use the squarified treemap engine instead of the span grid: `weight` becomes relative *area*,
+   * spans are ignored, and the container is filled exactly with no gaps. Default `false`. */
+  isTreemap?: boolean;
   /** `true` (default): stretch to fill the container's height. `false`: fixed `rowHeight` per
    * row, container grows downward. */
   isFillHeight?: boolean;
@@ -63,7 +71,7 @@ export interface FreeGridProps extends ResolvedGridProps {
   items: ReactElement<GridItemProps>[];
 }
 
-export interface PinnedGridProps extends Omit<ResolvedGridProps, "isAnimated"> {
+export interface SpanGridProps extends Omit<ResolvedGridProps, "isAnimated"> {
   items: ReactElement<GridItemProps>[];
 }
 
@@ -74,6 +82,8 @@ const DEFAULTS: Omit<ResolvedGridProps, "isAnimated" | "style"> = {
   cols: 7,
   rows: 7,
   gap: 8,
+  isPacked: true,
+  isTreemap: false,
   isFillHeight: true,
   rowHeight: 96,
   isGridVisible: false,
@@ -86,19 +96,24 @@ const gridLinesStyle = (cols: number): CSSProperties => ({
   backgroundSize: `calc(100% / ${cols}) 100%`,
 });
 
-/** Shared cell shell for both layout modes — the parent sets only its positioning style. */
+/** Shared cell shell for both layout modes — the parent sets only its positioning style. An empty
+ * cell reserves its span but is inert: no gridcell role, no focus, no content. */
 const Cell = ({
   style,
+  isEmpty,
   children,
-}: PropsWithChildren<{ style: CSSProperties }>) => (
-  <div
-    role="gridcell"
-    tabIndex={0}
-    style={{ minWidth: 0, minHeight: 0, ...style }}
-  >
-    {children}
-  </div>
-);
+}: PropsWithChildren<{ style: CSSProperties; isEmpty?: boolean }>) =>
+  isEmpty ? (
+    <div aria-hidden style={{ ...style }} />
+  ) : (
+    <div
+      role="gridcell"
+      tabIndex={0}
+      style={{ minWidth: 0, minHeight: 0, ...style }}
+    >
+      {children}
+    </div>
+  );
 
 /** Free-fill mode: items placed by the squarified treemap, absolutely positioned as percentages. */
 const FreeGrid = ({
@@ -151,6 +166,7 @@ const FreeGrid = ({
       {placements.map((p, i) => (
         <Cell
           key={items[i].key ?? i}
+          isEmpty={items[i].props.isEmpty}
           style={{
             position: "absolute",
             left: `${p.x * 100}%`,
@@ -169,29 +185,35 @@ const FreeGrid = ({
   );
 };
 
-/** Pinned-span mode: at least one item wants an exact col/row span, so hand placement to native
- * CSS Grid (`grid-auto-flow: dense`) — packing fixed spans around flexible ones is a bin-packing
- * problem the browser already solves. Trade-off: `dense` can reorder items to fill gaps, and grid
- * track changes don't support the transition `FreeGrid` uses. */
-const PinnedGrid = ({
+/** Span mode (default): every item takes an exact col/row span (from `weight`/`cols`/`rows`) and
+ * native CSS Grid places them. `isPacked` picks the flow: `dense` back-fills gaps (forgiving, but
+ * later items can jump earlier), plain `row` keeps strict source order. `cols` columns always fill
+ * the width via `minmax(0, 1fr)`; `rows` sets the height-filling row bands when `isFillHeight`. */
+const SpanGrid = ({
   items,
   cols,
+  rows,
   gap,
+  isPacked,
   isFillHeight,
   rowHeight,
   isGridVisible,
   className,
   style,
-}: PinnedGridProps) => {
+}: SpanGridProps) => {
   const gridSpan = items.map((item) => spanFor(item.props, cols));
 
   const containerStyles: CSSProperties = {
     display: "grid",
-    gridTemplateColumns: `repeat(${cols}, 1fr)`,
-    gridAutoFlow: "row dense",
+    gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
+    gridAutoFlow: isPacked ? "row dense" : "row",
     gap: toCss(gap),
     ...(isFillHeight
-      ? { gridAutoRows: "1fr", height: "100%" }
+      ? {
+          gridTemplateRows: `repeat(${rows}, minmax(0, 1fr))`,
+          gridAutoRows: "minmax(0, 1fr)",
+          height: "100%",
+        }
       : { gridAutoRows: toCss(rowHeight) }),
     ...(isGridVisible ? gridLinesStyle(cols) : {}),
     ...style,
@@ -204,6 +226,7 @@ const PinnedGrid = ({
         return (
           <Cell
             key={item.key ?? i}
+            isEmpty={item.props.isEmpty}
             style={{
               gridColumn: `span ${colSpan}`,
               gridRow: `span ${rowSpan}`,
@@ -222,13 +245,9 @@ export const Grid = memo(({ children, ...rest }: GridProps) => {
 
   const items = asGridItems(children);
 
-  const isPinned = items.some(
-    (c) => c.props.cols != null || c.props.rows != null,
-  );
-
-  return isPinned ? (
-    <PinnedGrid items={items} {...args} />
-  ) : (
+  return args.isTreemap ? (
     <FreeGrid items={items} {...args} />
+  ) : (
+    <SpanGrid items={items} {...args} />
   );
 });

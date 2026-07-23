@@ -2,29 +2,31 @@ import { describe, expect, test } from 'bun:test';
 import { spanFor } from '../src/utils';
 
 describe('spanFor', () => {
-  test('both cols and rows pinned: exact, weight ignored', () => {
-    expect(spanFor({ cols: 3, rows: 2, weight: 99 }, 6)).toEqual({ colSpan: 3, rowSpan: 2 });
-  });
-
-  test('only cols pinned: rowSpan falls back to weight (rounded)', () => {
-    expect(spanFor({ cols: 3, weight: 4 }, 6)).toEqual({ colSpan: 3, rowSpan: 4 });
-    expect(spanFor({ cols: 3 }, 6)).toEqual({ colSpan: 3, rowSpan: 1 });
-  });
-
-  test('only rows pinned: colSpan falls back to weight (rounded)', () => {
-    expect(spanFor({ rows: 2, weight: 3 }, 6)).toEqual({ colSpan: 3, rowSpan: 2 });
-  });
-
-  test('neither pinned: aims for a weight-sized square', () => {
+  test('weight sizes both axes equally — equal weights are equal squares', () => {
     expect(spanFor({}, 6)).toEqual({ colSpan: 1, rowSpan: 1 });
-    expect(spanFor({ weight: 4 }, 6)).toEqual({ colSpan: 2, rowSpan: 2 });
+    expect(spanFor({ weight: 2 }, 6)).toEqual({ colSpan: 2, rowSpan: 2 });
+    expect(spanFor({ weight: 3 }, 6)).toEqual({ colSpan: 3, rowSpan: 3 });
   });
 
-  test('pinned cols is clamped to the available columns', () => {
-    expect(spanFor({ cols: 99, rows: 1 }, 6)).toEqual({ colSpan: 6, rowSpan: 1 });
+  test('cols/rows override weight per-axis (no overloading)', () => {
+    expect(spanFor({ cols: 3, rows: 2, weight: 99 }, 6)).toEqual({ colSpan: 3, rowSpan: 2 });
+    // cols overrides only the horizontal axis; weight still drives the vertical.
+    expect(spanFor({ cols: 4, weight: 2 }, 6)).toEqual({ colSpan: 4, rowSpan: 2 });
+    expect(spanFor({ rows: 5, weight: 2 }, 6)).toEqual({ colSpan: 2, rowSpan: 5 });
   });
 
-  test('weight-derived span is clamped to the available columns', () => {
-    expect(spanFor({ rows: 1, weight: 99 }, 6)).toEqual({ colSpan: 6, rowSpan: 1 });
+  test('a lone pin leaves the other axis at 1 (weight defaults to 1)', () => {
+    expect(spanFor({ cols: 3 }, 6)).toEqual({ colSpan: 3, rowSpan: 1 });
+    expect(spanFor({ rows: 2 }, 6)).toEqual({ colSpan: 1, rowSpan: 2 });
+  });
+
+  test('colSpan is clamped to the available columns', () => {
+    expect(spanFor({ cols: 99 }, 6).colSpan).toBe(6);
+    expect(spanFor({ weight: 99 }, 6).colSpan).toBe(6);
+  });
+
+  test('non-positive / missing weight falls back to 1', () => {
+    expect(spanFor({ weight: 0 }, 6)).toEqual({ colSpan: 1, rowSpan: 1 });
+    expect(spanFor({ weight: -3 }, 6)).toEqual({ colSpan: 1, rowSpan: 1 });
   });
 });

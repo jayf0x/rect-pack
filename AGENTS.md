@@ -16,8 +16,11 @@ it before making structural changes.**
   here — this is what keeps `src/index.ts` usable without the `react` peer dependency installed.
 - `src/react.tsx` — `<Grid>` / `<GridItem>`, the `@weighted-grid/react` entry. Owns every
   React-specific type (`GridProps`, `GridItemProps`, ...) and the `GridItem` component itself.
-  Renders placements as absolutely-positioned percentage boxes. React is an **optional** peer
-  dependency.
+  Two engines, chosen explicitly (no silent flip): the default **span grid** (`SpanGrid`) maps each
+  item to an exact native CSS-Grid col/row span via `spanFor`, and the opt-in **treemap**
+  (`FreeGrid`, `isTreemap`) renders the `core.ts` allocator as absolutely-positioned percentage
+  boxes. `weight` sizes both axes (equal weights = equal squares); `cols`/`rows` override per-axis.
+  React is an **optional** peer dependency.
 - `src/utils.ts` — render-side helpers used only by `src/react.tsx` (`spanFor`, `toCss`,
   `asValidElements`, `useReducedMotion`, `defined`).
 - `src/index.ts` — main entry; re-exports `layoutGrid` and core-only types. No other engine lives
