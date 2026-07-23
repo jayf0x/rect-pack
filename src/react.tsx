@@ -12,7 +12,13 @@ import {
   type ReactElement,
 } from "react";
 import { neededRows, layoutGrid } from "./core";
-import { useReducedMotion, toCss, spanFor, asValidElements, defined } from "./utils";
+import {
+  useReducedMotion,
+  toCss,
+  spanFor,
+  asGridItems,
+  mergeDefaults,
+} from "./utils";
 
 export type GridItemProps = PropsWithChildren<{
   /** Relative area. Defaults to 1; a 2 gets ~twice the space of a 1. Ignored on any axis pinned
@@ -24,9 +30,6 @@ export type GridItemProps = PropsWithChildren<{
   /** Pin this item to exactly `rows` grid rows. See `cols`. */
   rows?: number;
 }>;
-
-/** Marker component — `Grid` reads its props and renders its children in the assigned block. */
-export const GridItem = (_: GridItemProps): null => null;
 
 export interface GridProps extends PropsWithChildren {
   cols?: number;
@@ -64,6 +67,9 @@ export interface PinnedGridProps extends Omit<ResolvedGridProps, "isAnimated"> {
   items: ReactElement<GridItemProps>[];
 }
 
+/** Marker component — `Grid` reads its props and renders its children in the assigned block. */
+export const GridItem = (_: GridItemProps): null => null;
+
 const DEFAULTS: Omit<ResolvedGridProps, "isAnimated" | "style"> = {
   cols: 7,
   rows: 7,
@@ -75,13 +81,21 @@ const DEFAULTS: Omit<ResolvedGridProps, "isAnimated" | "style"> = {
 };
 
 const gridLinesStyle = (cols: number): CSSProperties => ({
-  backgroundImage: "linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)",
+  backgroundImage:
+    "linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)",
   backgroundSize: `calc(100% / ${cols}) 100%`,
 });
 
 /** Shared cell shell for both layout modes — the parent sets only its positioning style. */
-const Cell = ({ style, children }: PropsWithChildren<{ style: CSSProperties }>) => (
-  <div role="gridcell" tabIndex={0} style={{ minWidth: 0, minHeight: 0, ...style }}>
+const Cell = ({
+  style,
+  children,
+}: PropsWithChildren<{ style: CSSProperties }>) => (
+  <div
+    role="gridcell"
+    tabIndex={0}
+    style={{ minWidth: 0, minHeight: 0, ...style }}
+  >
     {children}
   </div>
 );
@@ -190,7 +204,10 @@ const PinnedGrid = ({
         return (
           <Cell
             key={item.key ?? i}
-            style={{ gridColumn: `span ${colSpan}`, gridRow: `span ${rowSpan}` }}
+            style={{
+              gridColumn: `span ${colSpan}`,
+              gridRow: `span ${rowSpan}`,
+            }}
           >
             {item.props.children}
           </Cell>
@@ -201,9 +218,10 @@ const PinnedGrid = ({
 };
 
 export const Grid = memo(({ children, ...rest }: GridProps) => {
-  const args = { ...DEFAULTS, ...defined(rest) } as ResolvedGridProps;
+  const args = mergeDefaults(rest, DEFAULTS) as ResolvedGridProps;
 
-  const items = asValidElements<GridItemProps>(children);
+  const items = asGridItems(children);
+
   const isPinned = items.some(
     (c) => c.props.cols != null || c.props.rows != null,
   );

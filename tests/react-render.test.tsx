@@ -2,10 +2,29 @@ import { describe, expect, test } from 'bun:test';
 import { renderToStaticMarkup } from 'react-dom/server';
 import { Grid, GridItem } from '../src/react';
 
-// Regression test: a user reported <Grid> rendering empty, unweighted cells with a published
-// version. Root-caused to their environment (see conversation), not this library — this pins
-// down the actual contract so a real regression here fails loudly instead of shipping silently.
+// Regression: a user reported <Grid> rendering empty, unweighted cells with a dev-only profiler
+// (Million Lint) enabled, which wraps every JSX element in an instrumentation component —
+// `<GridItem>` arrived one level down inside `props.children` instead of reaching `Grid` directly.
+// `asTargetElements` looks one level deep for a real GridItem before giving up.
+const Wrapper = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
+
 describe('Grid (SSR render)', () => {
+  test('finds a GridItem wrapped one level deep by another component', () => {
+    const html = renderToStaticMarkup(
+      <Grid cols={5} rows={5} isFillHeight={false} rowHeight={20} gap={3}>
+        <Wrapper>
+          <GridItem weight={4}>wrapped</GridItem>
+        </Wrapper>
+        <GridItem weight={1}>plain</GridItem>
+      </Grid>,
+    );
+
+    expect(html).toContain('wrapped<');
+    expect(html).toContain('plain<');
+    const widths = [...html.matchAll(/width:([\d.]+)%/g)].map((m) => Number(m[1]));
+    expect(Math.max(...widths)).toBeGreaterThan(60);
+  });
+
   test('forwards each GridItem\'s children into its cell', () => {
     const html = renderToStaticMarkup(
       <Grid cols={5} rows={5} isFillHeight={false} rowHeight={20} gap={3}>
