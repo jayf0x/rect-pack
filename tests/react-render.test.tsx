@@ -110,6 +110,22 @@ describe('Grid (SSR render)', () => {
     expect(fixed).toContain('grid-template-rows:repeat(3, 40px)');
   });
 
+  test('omitting rows auto-fills height: exactly the occupied rows stretch (1fr)', () => {
+    // 14 one-cell items in 12 columns occupy 2 rows — both stretch to fill, no guessed count.
+    const html = renderToStaticMarkup(
+      <Grid cols={12}>
+        {Array.from({ length: 14 }, (_, i) => (
+          <GridItem key={i} weight={1}>
+            {`i${i}`}
+          </GridItem>
+        ))}
+      </Grid>,
+    );
+
+    expect(html).toContain('grid-template-rows:repeat(2, minmax(0, 1fr))');
+    expect(html).toContain('height:100%');
+  });
+
   test('isGridVisible draws both column and row guide lines', () => {
     const html = renderToStaticMarkup(
       <Grid cols={6} rows={4} isGridVisible>

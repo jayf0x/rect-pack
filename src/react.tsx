@@ -12,7 +12,7 @@ import {
   type ReactElement,
 } from "react";
 import { neededRows, layoutGrid } from "./core";
-import { useReducedMotion, toCss, spanFor, asGridItems } from "./utils";
+import { useReducedMotion, toCss, spanFor, packedRowCount, asGridItems } from "./utils";
 
 export type GridMode = "pack" | "order" | "treemap";
 
@@ -34,8 +34,10 @@ type CommonGridProps = PropsWithChildren<{
   /** Number of columns. Always fills the container width (there is no width equivalent of
    * `height` — a grid stretches horizontally by definition). */
   cols?: number;
-  /** Number of rows. With `height="fill"` these bands split the container height; with a fixed
-   * `height` they are the minimum rows drawn before the grid flows onward. */
+  /** Number of row tracks. **Omit it** (the default) and the grid auto-counts the rows its items
+   * occupy, then stretches exactly that many to fill the height — the "auto-fit" behaviour. Set it
+   * to force a fixed track count (which can leave gaps or overflow if it doesn't match the flow).
+   * In `mode="treemap"` it only steers the nominal aspect ratio. */
   rows?: number;
   gap?: number | string;
   /** `"fill"` (default): stretch to the parent's height, splitting it into `rows` bands — the
@@ -68,14 +70,16 @@ export type GridProps =
       isAnimated?: boolean;
     });
 
-type SpanGridProps = Required<Omit<CommonGridProps, "children" | "style">> & {
+type SpanGridProps = Required<Omit<CommonGridProps, "children" | "style" | "rows">> & {
   items: ReactElement<GridItemProps>[];
+  rows?: number;
   isPacked: boolean;
   style?: CSSProperties;
 };
 
-type TreemapGridProps = Required<Omit<CommonGridProps, "children" | "style">> & {
+type TreemapGridProps = Required<Omit<CommonGridProps, "children" | "style" | "rows">> & {
   items: ReactElement<GridItemProps>[];
+  rows?: number;
   isAnimated?: boolean;
   style?: CSSProperties;
 };
@@ -119,16 +123,19 @@ const SpanGrid = ({
 }: SpanGridProps) => {
   const gridSpan = items.map((item) => spanFor(item.props, cols));
   const track = height === "fill" ? "minmax(0, 1fr)" : toCss(height);
+  // Auto-count the rows the flow occupies so `1fr` tracks stretch to fill the height; an explicit
+  // `rows` forces a fixed count instead.
+  const rowCount = rows ?? packedRowCount(gridSpan, cols, isPacked);
 
   const containerStyles: CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
-    gridTemplateRows: `repeat(${rows}, ${track})`,
+    gridTemplateRows: `repeat(${rowCount}, ${track})`,
     gridAutoRows: track,
     gridAutoFlow: isPacked ? "row dense" : "row",
     gap: toCss(gap),
     ...(height === "fill" ? { height: "100%" } : {}),
-    ...(isGridVisible ? gridLinesStyle(cols, rows) : {}),
+    ...(isGridVisible ? gridLinesStyle(cols, rowCount) : {}),
     ...style,
   };
 
@@ -166,15 +173,17 @@ const TreemapGrid = ({
     typeof c.props.weight === "number" && c.props.weight > 0 ? c.props.weight : 1,
   );
 
+  // In treemap mode `rows` only steers the nominal aspect ratio; default it when omitted.
+  const rowsForAspect = rows ?? 7;
   const placements = useMemo(
     () =>
       layoutGrid(weights.map((weight, id) => ({ id, weight })), {
         cols,
-        rows,
+        rows: rowsForAspect,
         preserveOrder: true,
       }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [weights.join(","), cols, rows],
+    [weights.join(","), cols, rowsForAspect],
   );
 
   const isReducedMotion = useReducedMotion();
@@ -185,8 +194,8 @@ const TreemapGrid = ({
     height:
       height === "fill"
         ? "100%"
-        : `calc(${toCss(height)} * ${neededRows(items.length, cols, rows)})`,
-    ...(isGridVisible ? gridLinesStyle(cols, rows) : {}),
+        : `calc(${toCss(height)} * ${neededRows(items.length, cols, rowsForAspect)})`,
+    ...(isGridVisible ? gridLinesStyle(cols, rowsForAspect) : {}),
     ...style,
   };
 
@@ -223,7 +232,7 @@ export const Grid = memo((props: GridProps) => {
     children,
     mode = "pack",
     cols = 7,
-    rows = 7,
+    rows,
     gap = 8,
     height = "fill",
     isGridVisible = false,

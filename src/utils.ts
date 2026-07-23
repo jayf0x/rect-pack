@@ -43,3 +43,51 @@ export const spanFor = (props: GridItemProps, cols: number): { colSpan: number; 
     rowSpan: Math.max(1, Math.round(props.rows ?? weight)),
   };
 };
+
+type Span = { colSpan: number; rowSpan: number };
+
+/**
+ * How many rows the given spans occupy in a `cols`-wide grid — a faithful-enough port of CSS Grid
+ * auto-placement so the caller can stretch exactly that many `1fr` rows and fill the height. Mirrors
+ * `grid-auto-flow: row` (`isPacked=false`, sparse cursor that never moves backward) and
+ * `row dense` (`isPacked=true`, first-fit from the top). Returns at least 1.
+ */
+export const packedRowCount = (spans: Span[], cols: number, isPacked: boolean): number => {
+  const occ: boolean[][] = [];
+  const row = (r: number): boolean[] => {
+    while (occ.length <= r) occ.push(new Array(cols).fill(false));
+    return occ[r];
+  };
+  const fits = (r: number, c: number, cs: number, rs: number): boolean => {
+    for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) if (row(i)[j]) return false;
+    return true;
+  };
+
+  let cursorR = 0;
+  let cursorC = 0;
+  let maxRow = 0;
+
+  for (const { colSpan, rowSpan } of spans) {
+    const cs = Math.min(colSpan, cols);
+    const rs = rowSpan;
+    let r = isPacked ? 0 : cursorR;
+    let c = isPacked ? 0 : cursorC;
+
+    while (c > cols - cs || !fits(r, c, cs, rs)) {
+      c++;
+      if (c > cols - cs) {
+        r++;
+        c = 0;
+      }
+    }
+
+    for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) row(i)[j] = true;
+    maxRow = Math.max(maxRow, r + rs);
+    if (!isPacked) {
+      cursorR = r;
+      cursorC = c + cs;
+    }
+  }
+
+  return Math.max(1, maxRow);
+};
