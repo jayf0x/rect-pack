@@ -1,26 +1,20 @@
 /**
- * `@weighted-grid/react` — thin React wrapper over {@link ./grid-pack}.
+ * `@weighted-grid/react` — thin React wrapper over {@link ./core}.
  *
  * The core computes fractional rects; the DOM does the rest via absolute-positioned percentages,
  * so `<Grid>` never re-packs on resize. `react` is a peer dependency, not bundled.
  */
-import {
-  memo,
-  useMemo,
-  isValidElement,
-  Children,
-  type CSSProperties,
-} from "react";
+import { memo, useMemo, type CSSProperties } from "react";
 import { neededRows, packGrid } from "./core";
-import type {
-  FreeGridProps,
-  GridItemProps,
-  GridProps,
-  ItemsProps,
-  PinnedGridProps,
-  ResolvedGridProps,
+import {
+  GridItem,
+  type FreeGridProps,
+  type GridItemProps,
+  type GridProps,
+  type PinnedGridProps,
+  type ResolvedGridProps,
 } from "./types";
-import { useReducedMotion, toCss, spanFor } from "./utils";
+import { useReducedMotion, toCss, spanFor, asValidElements } from "./utils";
 
 const DEFAULTS: Omit<ResolvedGridProps, "animate" | "style"> = {
   cols: 7,
@@ -31,19 +25,6 @@ const DEFAULTS: Omit<ResolvedGridProps, "animate" | "style"> = {
   showGrid: false,
   className: "",
 };
-
-const gridBackground = (cols: number): CSSProperties => ({
-  backgroundImage:
-    "linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)",
-  backgroundSize: `calc(100% / ${cols}) 100%`,
-});
-
-const gridItems = ({
-  children,
-}: ItemsProps): React.ReactElement<GridItemProps>[] =>
-  Children.toArray(children).filter(
-    isValidElement,
-  ) as React.ReactElement<GridItemProps>[];
 
 /** Free-fill mode: items placed by the squarified treemap, absolutely positioned as percentages. */
 const FreeGrid = ({
@@ -74,7 +55,7 @@ const FreeGrid = ({
     [weights.join(","), cols, rows],
   );
 
-  const reducedMotion = useReducedMotion();
+  const isReducedMotion = useReducedMotion();
 
   const containerStyle: CSSProperties = {
     position: "relative",
@@ -82,9 +63,20 @@ const FreeGrid = ({
     height: fill
       ? "100%"
       : `calc(${toCss(rowHeight)} * ${neededRows(items.length, cols, rows)})`,
-    ...(showGrid ? gridBackground(cols) : {}),
+    ...(showGrid
+      ? {
+          backgroundImage:
+            "linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)",
+          backgroundSize: `calc(100% / ${cols}) 100%`,
+        }
+      : {}),
     ...style,
   };
+
+  const transitionStyle: CSSProperties["transition"] =
+    (animate ?? !isReducedMotion)
+      ? "left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease"
+      : undefined;
 
   return (
     <div className={className} style={containerStyle} role="grid">
@@ -99,10 +91,7 @@ const FreeGrid = ({
             top: `${p.y * 100}%`,
             width: `${p.w * 100}%`,
             height: `${p.h * 100}%`,
-            transition:
-              (animate ?? !reducedMotion)
-                ? "left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease"
-                : undefined,
+            transition: transitionStyle,
             padding: `calc(${toCss(gap)} / 2)`,
             boxSizing: "border-box",
             minWidth: 0,
@@ -130,12 +119,12 @@ const PinnedGrid = ({
   className,
   style,
 }: PinnedGridProps) => {
-  const spans = useMemo(
+  const gridSpan = useMemo(
     () => items.map((item) => spanFor(item.props, cols)),
     [items, cols],
   );
 
-  const gridStyle: CSSProperties = {
+  const containerStyles: CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, 1fr)`,
     gridAutoFlow: "row dense",
@@ -143,14 +132,20 @@ const PinnedGrid = ({
     ...(fill
       ? { gridAutoRows: "1fr", height: "100%" }
       : { gridAutoRows: toCss(rowHeight) }),
-    ...(showGrid ? gridBackground(cols) : {}),
+    ...(showGrid
+      ? {
+          backgroundImage:
+            "linear-gradient(90deg, rgba(255,255,255,.06) 1px, transparent 0)",
+          backgroundSize: `calc(100% / ${cols}) 100%`,
+        }
+      : {}),
     ...style,
   };
 
   return (
-    <div className={className} style={gridStyle} role="grid">
+    <div className={className} style={containerStyles} role="grid">
       {items.map((item, i) => {
-        const { colSpan, rowSpan } = spans[i];
+        const { colSpan, rowSpan } = gridSpan[i];
         return (
           <div
             key={i}
@@ -171,16 +166,19 @@ const PinnedGrid = ({
   );
 };
 
-export const Grid = memo(({ children, animate, style, ...rest }: GridProps) => {
-  const resolved: ResolvedGridProps = { ...DEFAULTS, ...rest, animate, style };
-  const items = gridItems({ children });
-  const pinned = items.some(
+export { GridItem };
+
+export const Grid = memo(({ children, ...rest }: GridProps) => {
+  const args: ResolvedGridProps = { ...DEFAULTS, ...rest };
+
+  const items = asValidElements<GridItemProps>(children);
+  const isPinned = items.some(
     (c) => c.props.cols != null || c.props.rows != null,
   );
 
-  return pinned ? (
-    <PinnedGrid items={items} {...resolved} />
+  return isPinned ? (
+    <PinnedGrid items={items} {...args} />
   ) : (
-    <FreeGrid items={items} {...resolved} />
+    <FreeGrid items={items} {...args} />
   );
 });
