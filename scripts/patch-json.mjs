@@ -7,53 +7,46 @@
 //   scripts/patch-json.mjs patch        # same as above, kept for compatibility
 //   PKG_JSON=other.json scripts/patch-json.mjs
 
-import { execFileSync } from 'node:child_process';
-import { readFileSync, writeFileSync } from 'node:fs';
+import { execFileSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
 
-const file = process.env.PKG_JSON ?? 'package.json';
+const getVFromV = (version) => {
+  console.log(version);
+  if (!/^(\d+)\.(\d+)\.(\d+)$/.test(version)) {
+    console.error(`✗ Invalid package version: ${version}`);
+    process.exit(1);
+  }
 
-const pkg = JSON.parse(readFileSync(file, 'utf8'));
-const versionMatch = /^(\d+)\.(\d+)\.(\d+)$/.exec(pkg.version);
+  return version.split(".").map(Number);
+};
 
-if (!versionMatch) {
-  console.error(`✗ Invalid package version: ${pkg.version}`);
-  process.exit(1);
-}
+const file = process.env.PKG_JSON ?? "package.json";
 
-const [major, minor, patch] = versionMatch.slice(1).map(Number);
+const pkg = JSON.parse(readFileSync(file, "utf8"));
+let [major, minor, patch] = getVFromV(pkg.version);
 
-let previousRelease;
+let nextVersion = null;
 try {
   const latestTag = execFileSync(
-    'git',
-    ['tag', '--list', 'v*', '--sort=-version:refname'],
-    { encoding: 'utf8' },
+    "git",
+    ["tag", "--list", "v*", "--sort=-version:refname"],
+    { encoding: "utf8" },
   )
     .trim()
-    .split('\n')
+    .split("\n")
     .find(Boolean);
 
   if (latestTag) {
-    const releaseMatch = /^v?(\d+)\.(\d+)\.(\d+)$/.exec(latestTag);
-    if (!releaseMatch) {
-      throw new Error(`Invalid git tag version: ${latestTag}`);
+    const prev = getVFromV(latestTag.split("v")[1]);
+    if (prev.major === major && prev.minor === minor) {
+      patch += 1;
     }
-
-    const [prevMajor, prevMinor] = releaseMatch.slice(1, 3).map(Number);
-    previousRelease = { major: prevMajor, minor: prevMinor };
   }
-} catch {
-  previousRelease = null;
+} catch (e) {
+  console.error("Could not parse latest tag. Error:", e);
 }
 
-if (previousRelease && (previousRelease.major !== major || previousRelease.minor !== minor)) {
-  console.error(
-    `✗ Refusing to patch: package.json version ${pkg.version} does not share the same major.minor as the latest release ${previousRelease.major}.${previousRelease.minor}.x`,
-  );
-  process.exit(1);
-}
-
-const next = `${major}.${minor}.${patch + 1}`;
+const next = `${major}.${minor}.${patch}`;
 pkg.version = next;
 writeFileSync(file, `${JSON.stringify(pkg, null, 2)}\n`);
 console.log(next);
