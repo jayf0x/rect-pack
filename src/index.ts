@@ -1,3 +1,3 @@
-export { neededRows, packGrid } from './grid-pack';
+export { neededRows, packGrid } from "./core";
 
-export type { GridInput, GridPackOptions, GridPlacement } from './types';
+export type { GridInput, GridPackOptions, GridPlacement } from "./types";

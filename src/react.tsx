@@ -11,7 +11,7 @@ import {
   Children,
   type CSSProperties,
 } from "react";
-import { neededRows, packGrid } from "./grid-pack";
+import { neededRows, packGrid } from "./core";
 import type {
   FreeGridProps,
   GridItemProps,
