@@ -1,6 +1,6 @@
 {
   "name": "weighted-grid",
-  "version": "1.1.1",
+  "version": "1.1.2",
   "type": "module",
   "description": "A zero-dependency, weight-driven grid that fills its container using a squarified treemap, agnostic to what's inside each cell.",
   "author": "jayF0x",
