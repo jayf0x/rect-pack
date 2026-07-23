@@ -24,7 +24,7 @@ export const asGridItems = (children: ReactNode) =>
         const child = (el.props as { children?: unknown }).children;
 
         item = (
-          isValidElement(child) && child.type !== GridItem ? child : el
+          isValidElement(child) && child.type === GridItem ? child : el
         ) as ReactElement<GridItemProps>;
       }
 
@@ -34,12 +34,15 @@ export const asGridItems = (children: ReactNode) =>
     [],
   );
 
-export function mergeDefaults<T extends object>(obj: T, defaults: T): T {
-  const out = {} as T;
+/** Shallow-merges `obj` over `defaults`, keeping the default for any key that's missing or
+ * explicitly `undefined` in `obj` — so an omitted prop and an explicit `prop={undefined}` behave
+ * the same. */
+export function mergeDefaults<T extends object>(obj: Partial<T>, defaults: T): T {
+  const out = { ...defaults };
 
   for (const key in obj) {
     const value = obj[key];
-    out[key] = value === undefined ? defaults[key] : value;
+    if (value !== undefined) out[key] = value as T[typeof key];
   }
 
   return out;
