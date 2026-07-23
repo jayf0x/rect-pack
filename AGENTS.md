@@ -41,7 +41,12 @@ bun run typecheck   # tsc --noEmit
 bun run build       # vite lib build → dist/ (index + react entries)
 bun run format      # biome check --write
 cd demo && bunx vite build   # verify the demo compiles
+bun scripts/dead-zones.ts    # QA: dead-zone map + dead%/badness for the Showcase span config
 ```
+
+`scripts/dead-zones.ts` analyzes empty space in the span grid from the placement model
+(`placeSpans`) — no browser. Also importable (`analyzeSpans`, `analyzeItems`) for tests; see
+`tests/dead-zones.test.ts` and `.claude/next-agent-prompt.md`.
 
 ## Conventions
 

@@ -93,6 +93,24 @@ describe('Grid (SSR render)', () => {
     expect(strict).not.toContain('dense');
   });
 
+  test('mode="order" emits explicit dead-zone-filled placement, not bare spans', () => {
+    // Two 2-wide elastic items in a 12-col grid: raw spans leave 8 trailing dead cells; the fill
+    // grows them into explicit line-based placement so the row fills. Order is preserved.
+    const html = renderToStaticMarkup(
+      <Grid cols={12} mode="order">
+        <GridItem weight={2}>a</GridItem>
+        <GridItem weight={2}>b</GridItem>
+      </Grid>,
+    );
+
+    // Explicit `start / span N`, not `span N` alone; first item pinned to column line 1.
+    expect(html).toContain('grid-column:1 / span');
+    expect(html).not.toContain('grid-column:span 2;grid-row:span 2');
+    // No dead columns left: the two items together cover all 12 columns.
+    const spans = [...html.matchAll(/grid-column:\d+ \/ span (\d+)/g)].map((m) => Number(m[1]));
+    expect(spans.reduce((a, b) => a + b, 0)).toBe(12);
+  });
+
   test('rows always draws row tracks — height="fill" splits, fixed height reserves', () => {
     const fill = renderToStaticMarkup(
       <Grid cols={4} rows={3}>

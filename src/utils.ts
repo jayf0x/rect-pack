@@ -44,25 +44,39 @@ export const spanFor = (props: GridItemProps, cols: number): { colSpan: number; 
   };
 };
 
-type Span = { colSpan: number; rowSpan: number };
+export type Span = { colSpan: number; rowSpan: number };
+
+/** Where one item lands. Starts are **0-indexed**; add 1 for CSS `grid-column-start`/`grid-row-start`. */
+export type Placement = { colStart: number; rowStart: number; colSpan: number; rowSpan: number };
+
+export type Placed = {
+  /** One entry per input span, in input order. */
+  placements: Placement[];
+  /** Rows occupied (>= 1). */
+  rows: number;
+  /** `occupancy[r][c]` = is cell (row r, col c) covered. Rows may be shorter than `rows` if empty. */
+  occupancy: boolean[][];
+};
 
 /**
- * How many rows the given spans occupy in a `cols`-wide grid — a faithful-enough port of CSS Grid
- * auto-placement so the caller can stretch exactly that many `1fr` rows and fill the height. Mirrors
- * `grid-auto-flow: row` (`isPacked=false`, sparse cursor that never moves backward) and
- * `row dense` (`isPacked=true`, first-fit from the top). Returns at least 1.
+ * Place `spans` in a `cols`-wide grid — a faithful-enough port of CSS Grid auto-placement, so the
+ * caller can stretch exactly the occupied rows *and* reason about dead cells. Mirrors
+ * `grid-auto-flow: row` (`isPacked=false`, sparse cursor that never moves backward) and `row dense`
+ * (`isPacked=true`, first-fit from the top). This is the single source of truth for placement —
+ * `packedRowCount` and the dead-zone analyzer both build on it.
  */
-export const packedRowCount = (spans: Span[], cols: number, isPacked: boolean): number => {
-  const occ: boolean[][] = [];
+export const placeSpans = (spans: Span[], cols: number, isPacked: boolean): Placed => {
+  const occupancy: boolean[][] = [];
   const row = (r: number): boolean[] => {
-    while (occ.length <= r) occ.push(new Array(cols).fill(false));
-    return occ[r];
+    while (occupancy.length <= r) occupancy.push(new Array(cols).fill(false));
+    return occupancy[r];
   };
   const fits = (r: number, c: number, cs: number, rs: number): boolean => {
     for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) if (row(i)[j]) return false;
     return true;
   };
 
+  const placements: Placement[] = [];
   let cursorR = 0;
   let cursorC = 0;
   let maxRow = 0;
@@ -82,6 +96,7 @@ export const packedRowCount = (spans: Span[], cols: number, isPacked: boolean): 
     }
 
     for (let i = r; i < r + rs; i++) for (let j = c; j < c + cs; j++) row(i)[j] = true;
+    placements.push({ colStart: c, rowStart: r, colSpan: cs, rowSpan: rs });
     maxRow = Math.max(maxRow, r + rs);
     if (!isPacked) {
       cursorR = r;
@@ -89,5 +104,63 @@ export const packedRowCount = (spans: Span[], cols: number, isPacked: boolean): 
     }
   }
 
-  return Math.max(1, maxRow);
+  return { placements, rows: Math.max(1, maxRow), occupancy };
+};
+
+/** Rows the given spans occupy in a `cols`-wide grid (>= 1). Thin wrapper over {@link placeSpans}. */
+export const packedRowCount = (spans: Span[], cols: number, isPacked: boolean): number =>
+  placeSpans(spans, cols, isPacked).rows;
+
+/** An item is *elastic* when its size comes only from `weight` (no explicit `cols`/`rows`) — it may
+ * grow to absorb dead cells. Items with an explicit span, or `isEmpty` negative space, are fixed. */
+export const isElasticItem = (props: GridItemProps): boolean =>
+  !props.isEmpty && props.cols == null && props.rows == null;
+
+/**
+ * Grow elastic items into adjacent dead cells so the span grid fills its width without reordering —
+ * the "dead-zone-aware" pass on top of {@link placeSpans}. Each elastic item expands (right first,
+ * then left) into columns that are empty across every row it spans; fixed items keep their span.
+ * Returns a fresh placement array, same length/order as the input. Deterministic.
+ */
+export const fillDeadZones = (
+  placements: Placement[],
+  isElastic: boolean[],
+  cols: number,
+  rows: number,
+): Placement[] => {
+  const out = placements.map((p) => ({ ...p }));
+  const occ: boolean[][] = Array.from({ length: rows }, () => new Array<boolean>(cols).fill(false));
+  const paint = (p: Placement, c: number) => {
+    for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) if (occ[r]) occ[r][c] = true;
+  };
+  for (const p of out) for (let c = p.colStart; c < p.colStart + p.colSpan; c++) paint(p, c);
+
+  // A column is growable for `p` only if it's in-bounds and free across all of p's rows.
+  const colFree = (p: Placement, c: number): boolean => {
+    if (c < 0 || c >= cols) return false;
+    for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) if (!occ[r] || occ[r][c]) return false;
+    return true;
+  };
+
+  // Fixpoint: one item growing can open a gap adjacent to another. Bounded by total cells.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (let i = 0; i < out.length; i++) {
+      if (!isElastic[i]) continue;
+      const p = out[i];
+      while (colFree(p, p.colStart + p.colSpan)) {
+        paint(p, p.colStart + p.colSpan);
+        p.colSpan++;
+        changed = true;
+      }
+      while (colFree(p, p.colStart - 1)) {
+        p.colStart--;
+        p.colSpan++;
+        paint(p, p.colStart);
+        changed = true;
+      }
+    }
+  }
+  return out;
 };

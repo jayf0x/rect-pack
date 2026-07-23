@@ -12,7 +12,16 @@ import {
   type ReactElement,
 } from "react";
 import { neededRows, layoutGrid } from "./core";
-import { useReducedMotion, toCss, spanFor, packedRowCount, asGridItems } from "./utils";
+import {
+  useReducedMotion,
+  toCss,
+  spanFor,
+  packedRowCount,
+  placeSpans,
+  fillDeadZones,
+  isElasticItem,
+  asGridItems,
+} from "./utils";
 
 export type GridMode = "pack" | "order" | "treemap";
 
@@ -127,6 +136,17 @@ const SpanGrid = ({
   // `rows` forces a fixed count instead.
   const rowCount = rows ?? packedRowCount(gridSpan, cols, isPacked);
 
+  // `order` mode owns placement: grow elastic items into dead cells for a gap-free fill (strict
+  // order preserved). `pack` mode stays with native `grid-auto-flow: dense` + bare spans.
+  const placed = isPacked
+    ? null
+    : fillDeadZones(
+        placeSpans(gridSpan, cols, false).placements,
+        items.map((it) => isElasticItem(it.props)),
+        cols,
+        rowCount,
+      );
+
   const containerStyles: CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
@@ -143,11 +163,19 @@ const SpanGrid = ({
     <div className={className} style={containerStyles} role="grid">
       {items.map((item, i) => {
         const { colSpan, rowSpan } = gridSpan[i];
+        const p = placed?.[i];
+        const cellSpan = p
+          ? {
+              // 0-indexed model → 1-indexed CSS lines.
+              gridColumn: `${p.colStart + 1} / span ${p.colSpan}`,
+              gridRow: `${p.rowStart + 1} / span ${p.rowSpan}`,
+            }
+          : { gridColumn: `span ${colSpan}`, gridRow: `span ${rowSpan}` };
         return (
           <Cell
             key={item.key ?? i}
             isEmpty={item.props.isEmpty}
-            style={{ gridColumn: `span ${colSpan}`, gridRow: `span ${rowSpan}` }}
+            style={cellSpan}
           >
             {item.props.children}
           </Cell>
