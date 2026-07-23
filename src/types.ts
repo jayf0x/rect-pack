@@ -17,4 +17,8 @@ export type GridPlacement = {
 export type GridOptions = {
   cols?: number;
   rows?: number;
+  /** Keep input order instead of sorting descending by weight. Preserves each item's position (so
+   * you control layout) at the cost of slightly less-square aspect ratios — items whose weight is
+   * far from their neighbours' can stretch. Default `false`. */
+  preserveOrder?: boolean;
 };

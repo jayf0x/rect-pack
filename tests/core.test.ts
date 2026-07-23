@@ -113,4 +113,24 @@ describe('layoutGrid', () => {
   test('cols must be >= 1', () => {
     expect(() => layoutGrid([{ id: 0 }], { cols: 0 })).toThrow();
   });
+
+  test('preserveOrder keeps input order in space and still tiles exactly', () => {
+    // Ascending weights: sorted would put the heaviest (last) item at the origin; preserveOrder
+    // must leave the lightest (first) item at the top-left corner instead.
+    const items = Array.from({ length: 8 }, (_, i) => ({ id: i, weight: i + 1 }));
+
+    const ordered = layoutGrid(items, { cols: 4, rows: 4, preserveOrder: true });
+    const sorted = layoutGrid(items, { cols: 4, rows: 4 });
+
+    const first = ordered.find((p) => p.id === 0)!;
+    expect(first.x).toBe(0);
+    expect(first.y).toBe(0);
+
+    // The two layouts genuinely differ (order matters), but both fill the unit square exactly.
+    expect(ordered).not.toEqual(sorted);
+    for (const layout of [ordered, sorted]) {
+      const area = layout.reduce((s, p) => s + p.w * p.h, 0);
+      expect(area).toBeCloseTo(1, 9);
+    }
+  });
 });

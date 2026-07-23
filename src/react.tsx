@@ -53,8 +53,11 @@ type CommonGridProps = PropsWithChildren<{
  * - `"pack"` (default) — exact col/row spans, gaps back-filled by later items (`grid-auto-flow:
  *   dense`). Forgiving; item order can shift to fill holes.
  * - `"order"` — exact spans, strict source order, gaps left as-is.
- * - `"treemap"` — the squarified allocator: `weight` is area, the container is filled exactly with
- *   no gaps, and items are re-sorted by weight. Adds `isAnimated` (invalid in the other modes).
+ * - `"treemap"` — the squarified allocator: `weight` is *area*, the container is filled exactly
+ *   with **no gaps** and items grow on both axes to absorb the space, all while keeping your input
+ *   order. This is the "ordered auto-fit" mode: position control *and* a gap-free fill. Keep
+ *   weights within ~3× of each other or small items stretch into slivers. Item `cols`/`rows` are
+ *   ignored here. Adds `isAnimated` (invalid in the other modes).
  */
 export type GridProps =
   | (CommonGridProps & { mode?: "pack" | "order" })
@@ -164,7 +167,12 @@ const TreemapGrid = ({
   );
 
   const placements = useMemo(
-    () => layoutGrid(weights.map((weight, id) => ({ id, weight })), { cols, rows }),
+    () =>
+      layoutGrid(weights.map((weight, id) => ({ id, weight })), {
+        cols,
+        rows,
+        preserveOrder: true,
+      }),
     // eslint-disable-next-line react-hooks/exhaustive-deps
     [weights.join(","), cols, rows],
   );

@@ -132,7 +132,7 @@ export const neededRows = (count: number, cols: number, rows: number): number =>
  */
 export const layoutGrid = <T extends GridInput>(
   items: T[],
-  { cols = 7, rows = 7 }: GridOptions = {},
+  { cols = 7, rows = 7, preserveOrder = false }: GridOptions = {},
 ): GridPlacement[] => {
   if (items.length === 0) return [];
   if (cols < 1) throw new Error(`cols must be >= 1, got ${cols}`);
@@ -142,10 +142,11 @@ export const layoutGrid = <T extends GridInput>(
     id: it.id,
     weight: it.weight && it.weight > 0 ? it.weight : 1,
   }));
-  const sorted = [...weighted].sort((a, b) => b.weight - a.weight);
+  // Sorting descending keeps rows near-square; skipping it keeps input order (position control).
+  const ordered = preserveOrder ? weighted : [...weighted].sort((a, b) => b.weight - a.weight);
 
   const out = new Map<GridInput['id'], Rect>();
-  squarify(sorted, 0, 0, cols, rowsUsed, out);
+  squarify(ordered, 0, 0, cols, rowsUsed, out);
 
   return items.map((it) => {
     const r = out.get(it.id) as Rect;
