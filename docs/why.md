@@ -23,16 +23,16 @@ that idea for general React UI:
 
 **The gap we fill:** the small, boring, content-agnostic React layer that turns "here are some
 boxes, some matter more" into a filled, responsive grid — and unifies the two layout flows people
-actually want behind one `fill` prop.
+actually want behind one `isFillHeight` prop.
 
 ## The two flows, one placement
 
 Both flows use the **same** weight-driven span assignment. Only the row sizing differs:
 
-- `fill` (default): rows are `1fr`, so the grid **stretches to fill the container height exactly** —
-  no gaps. Resizing the container is free; the browser reflows, no JS re-pack.
-- `fill={false}`: rows are a fixed height, so the grid **keeps its columns and flows downward**
-  (the container grows / scrolls) — the familiar CSS-grid look.
+- `isFillHeight` (default): rows are `1fr`, so the grid **stretches to fill the container height
+  exactly** — no gaps. Resizing the container is free; the browser reflows, no JS re-pack.
+- `isFillHeight={false}`: rows are a fixed height, so the grid **keeps its columns and flows
+  downward** (the container grows / scrolls) — the familiar CSS-grid look.
 
 This is the crux of the product: the difference between "masonry-ish filled dashboard" and "plain
 column grid" should be one prop, not two libraries.

@@ -25,7 +25,7 @@ resolves itself — no coordinates, no manual math.
 
 - Placement by a **squarified treemap** — each item's area is proportional to its `weight`, on
   both axes, so aspect ratios stay near-square instead of collapsing into slivers
-- One `fill` prop toggles "stretch to fill the container" vs. "fixed columns, flows downward"
+- One `isFillHeight` prop toggles "stretch to fill the container" vs. "fixed columns, flows downward"
 - Full TypeScript types, ESM + CJS builds, zero runtime dependencies (`react` is an optional peer)
 
 ## Install
@@ -43,7 +43,7 @@ npm install weighted-grid
 ```tsx
 import { Grid, GridItem } from 'weighted-grid/react';
 
-<Grid cols={7} fill>
+<Grid cols={7} isFillHeight>
   <GridItem weight={4}>hero</GridItem>
   <GridItem>a</GridItem>
   <GridItem>b</GridItem>
@@ -56,9 +56,9 @@ import { Grid, GridItem } from 'weighted-grid/react';
 Or use the placement algorithm directly, framework-free:
 
 ```typescript
-import { packGrid } from 'weighted-grid';
+import { layoutGrid } from 'weighted-grid';
 
-const placed = packGrid([
+const placed = layoutGrid([
   { id: 'hero', weight: 4 },
   { id: 'a' },
   { id: 'b' },
@@ -70,13 +70,13 @@ const placed = packGrid([
 
 | Prop | Type | Default | Description |
 | --- | --- | --- | --- |
-| `cols` | `number` | `7` | Nominal column count squarify targets. Not a hard pixel grid — see `packGrid` below. |
+| `cols` | `number` | `7` | Nominal column count squarify targets. Not a hard pixel grid — see `layoutGrid` below. |
 | `rows` | `number` | `7` | Nominal row count; grows automatically if there are more items than `cols * rows`. |
 | `gap` | `number \| string` | `8` | Spacing between items (`px` if a number). |
-| `fill` | `boolean` | `true` | `true`: stretch to fill the container's height exactly. `false`: fixed `rowHeight` per row, container grows downward. |
-| `rowHeight` | `number \| string` | `96` | Row height when `fill` is `false`. Ignored while filling. |
-| `animate` | `boolean` | `true` | Smoothly transition position/size when weights or items change, instead of snapping. Off automatically under `prefers-reduced-motion`. |
-| `showGrid` | `boolean` | `false` | Render faint column guides behind the items. |
+| `isFillHeight` | `boolean` | `true` | `true`: stretch to fill the container's height exactly. `false`: fixed `rowHeight` per row, container grows downward. |
+| `rowHeight` | `number \| string` | `96` | Row height when `isFillHeight` is `false`. Ignored while filling. |
+| `isAnimated` | `boolean` | `true` | Smoothly transition position/size when weights or items change, instead of snapping. Off automatically under `prefers-reduced-motion`. |
+| `isGridVisible` | `boolean` | `false` | Render faint column guides behind the items. |
 | `className` | `string` | — | Applied to the outer container. |
 | `style` | `CSSProperties` | — | Merged into the outer container's inline style. |
 
@@ -90,18 +90,18 @@ const placed = packGrid([
 
 Pinning `cols`/`rows` on one item switches the whole grid to CSS Grid placement; unpinned items keep filling gaps by `weight`. See [`docs/why.md`](./docs/why.md) for why the two modes share one prop surface.
 
-## `packGrid` (framework-free)
+## `layoutGrid` (framework-free)
 
 ```typescript
-packGrid(items: GridInput[], options?: GridPackOptions): GridPlacement[]
+layoutGrid(items: GridInput[], options?: GridOptions): GridPlacement[]
 ```
 
 | Type | Field | Description |
 | --- | --- | --- |
 | `GridInput` | `id` | `string \| number` — stable identifier, echoed back on the placement. |
 | `GridInput` | `weight?` | Relative area, defaults to `1`. |
-| `GridPackOptions` | `cols?` | Nominal column count (default `7`). |
-| `GridPackOptions` | `rows?` | Nominal row count (default `7`); grows to fit if there are more items than `cols * rows`. |
+| `GridOptions` | `cols?` | Nominal column count (default `7`). |
+| `GridOptions` | `rows?` | Nominal row count (default `7`); grows to fit if there are more items than `cols * rows`. |
 | `GridPlacement` | `id`, `x`, `y`, `w`, `h` | `x/y/w/h` are fractions of the unit square (`0..1`) that always tile it exactly, with no gaps or overlaps. |
 
 ## Development

@@ -13,10 +13,10 @@
  * are never snapped to integer cell lines.
  */
 
-import type { GridInput, GridPackOptions, GridPlacement } from "./types";
+import type { GridInput, GridOptions, GridPlacement } from './types';
 
 type Rect = { x: number; y: number; w: number; h: number };
-type Weighted = { id: GridInput["id"]; weight: number };
+type Weighted = { id: GridInput['id']; weight: number };
 
 const PHI = (1 + Math.sqrt(5)) / 2;
 
@@ -27,7 +27,7 @@ const dice = (
   y0: number,
   x1: number,
   y1: number,
-  out: Map<GridInput["id"], Rect>,
+  out: Map<GridInput['id'], Rect>,
 ): void => {
   const total = row.reduce((s, it) => s + it.weight, 0);
   const k = total > 0 ? (x1 - x0) / total : 0;
@@ -46,7 +46,7 @@ const slice = (
   y0: number,
   x1: number,
   y1: number,
-  out: Map<GridInput["id"], Rect>,
+  out: Map<GridInput['id'], Rect>,
 ): void => {
   const total = row.reduce((s, it) => s + it.weight, 0);
   const k = total > 0 ? (y1 - y0) / total : 0;
@@ -72,7 +72,7 @@ const squarify = (
   y0: number,
   x1: number,
   y1: number,
-  out: Map<GridInput["id"], Rect>,
+  out: Map<GridInput['id'], Rect>,
 ): void => {
   const n = items.length;
   let value = items.reduce((s, it) => s + it.weight, 0);
@@ -130,9 +130,9 @@ export const neededRows = (count: number, cols: number, rows: number): number =>
 /**
  * Places every item as a fractional rect tiling the unit square. Output order matches input.
  */
-export const packGrid = <T extends GridInput>(
+export const layoutGrid = <T extends GridInput>(
   items: T[],
-  { cols = 7, rows = 7 }: GridPackOptions = {},
+  { cols = 7, rows = 7 }: GridOptions = {},
 ): GridPlacement[] => {
   if (items.length === 0) return [];
   if (cols < 1) throw new Error(`cols must be >= 1, got ${cols}`);
@@ -144,7 +144,7 @@ export const packGrid = <T extends GridInput>(
   }));
   const sorted = [...weighted].sort((a, b) => b.weight - a.weight);
 
-  const out = new Map<GridInput["id"], Rect>();
+  const out = new Map<GridInput['id'], Rect>();
   squarify(sorted, 0, 0, cols, rowsUsed, out);
 
   return items.map((it) => {

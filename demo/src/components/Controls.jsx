@@ -12,7 +12,7 @@ export function Controls({ count, setCount, cols, setCols, weights, setWeight })
       <Slider label="Weight B" value={weights.B} min={1} max={20} onInput={(v) => setWeight('B', v)} />
       <Slider label="Weight C" value={weights.C} min={1} max={20} onInput={(v) => setWeight('C', v)} />
       <p className="text-[13px] text-ink/40">
-        Same blocks in both panels — only the <code className="font-mono text-ink/70">fill</code> prop differs.
+        Same blocks in both panels — only the <code className="font-mono text-ink/70">isFillHeight</code> prop differs.
       </p>
     </div>
   );

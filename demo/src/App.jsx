@@ -23,18 +23,18 @@ export function App() {
 
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
           <DemoPanel
-            title="fill — stretches to fill"
+            title="isFillHeight — stretches to fill"
             caption="Rows are 1fr, so the grid fills the container's height exactly. Drag the bottom-right corner; it reflows with zero re-pack."
             blocks={blocks}
             cols={cols}
-            fill
+            isFillHeight
           />
           <DemoPanel
             title="fixed columns — flows down"
             caption="Same placement, but rows are a fixed height and the grid grows downward instead."
             blocks={blocks}
             cols={cols}
-            fill={false}
+            isFillHeight={false}
             rowHeight={72}
           />
         </div>
