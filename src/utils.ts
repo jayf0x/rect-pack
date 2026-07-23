@@ -27,20 +27,6 @@ export const asGridItems = (children: ReactNode) =>
     return items;
   }, []);
 
-/** Shallow-merges `obj` over `defaults`, keeping the default for any key that's missing or
- * explicitly `undefined` in `obj` — so an omitted prop and an explicit `prop={undefined}` behave
- * the same. */
-export function mergeDefaults<T extends object>(obj: Partial<T>, defaults: T): T {
-  const out = { ...defaults };
-
-  for (const key in obj) {
-    const value = obj[key];
-    if (value !== undefined) out[key] = value as T[typeof key];
-  }
-
-  return out;
-}
-
 const clamp = (n: number, max: number): number => Math.max(1, Math.min(max, Math.round(n)));
 
 /**

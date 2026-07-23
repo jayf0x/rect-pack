@@ -10,13 +10,13 @@ const Cell = ({ i, label }) => (
   </div>
 );
 
-/** Pinning `cols`/`rows` on a `GridItem` switches that whole `<Grid>` to native CSS Grid
- * (`grid-auto-flow: dense`) instead of the free-fill treemap — pinned items get an exact span,
- * auto (`weight`-only) items fill the gaps around them. */
+/** The default span grid: `cols`/`rows` give an item an exact span, plain `weight`-only items are
+ * `weight`-sized squares, and `grid-auto-flow: dense` (the default `mode="pack"`) fills the gaps
+ * around them. */
 export function PinnedExample() {
   return (
     <section className="flex flex-col gap-3">
-      <h2 className="text-[13px] font-medium uppercase tracking-[0.08em] text-ink/45">pinned spans — exact cols/rows, mixed with auto</h2>
+      <h2 className="text-[13px] font-medium uppercase tracking-[0.08em] text-ink/45">span grid — exact cols/rows, mixed with weighted squares</h2>
       <div className="h-[220px] w-full overflow-auto rounded-lg border border-line bg-panel p-1.5">
         <Grid cols={6} gap={6} className="h-full w-full">
           <GridItem cols={3} rows={2}>

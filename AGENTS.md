@@ -16,11 +16,15 @@ it before making structural changes.**
   here — this is what keeps `src/index.ts` usable without the `react` peer dependency installed.
 - `src/react.tsx` — `<Grid>` / `<GridItem>`, the `@weighted-grid/react` entry. Owns every
   React-specific type (`GridProps`, `GridItemProps`, ...) and the `GridItem` component itself.
-  Two engines, chosen explicitly (no silent flip): the default **span grid** (`SpanGrid`) maps each
-  item to an exact native CSS-Grid col/row span via `spanFor`, and the opt-in **treemap**
-  (`FreeGrid`, `isTreemap`) renders the `core.ts` allocator as absolutely-positioned percentage
-  boxes. `weight` sizes both axes (equal weights = equal squares); `cols`/`rows` override per-axis.
-  React is an **optional** peer dependency.
+  One `mode` prop picks the engine (no silent flip), one `height` prop (`"fill"` | px) picks the
+  vertical behaviour — those are the only layout switches. `mode="pack"` (default) and `"order"`
+  use the **span grid** (`SpanGrid`): each item maps to an exact native CSS-Grid col/row span via
+  `spanFor`, `pack` back-fills gaps (`grid-auto-flow: dense`), `order` keeps strict source order.
+  `mode="treemap"` uses `TreemapGrid`, rendering the `core.ts` allocator as absolutely-positioned
+  percentage boxes (`weight` is area; item `cols`/`rows` ignored; `isAnimated` is a treemap-only
+  prop, enforced by a discriminated `GridProps` union). `weight` sizes both span axes (equal
+  weights = equal squares); `cols`/`rows` override per-axis. React is an **optional** peer
+  dependency.
 - `src/utils.ts` — render-side helpers used only by `src/react.tsx` (`spanFor`, `toCss`,
   `asValidElements`, `useReducedMotion`, `defined`).
 - `src/index.ts` — main entry; re-exports `layoutGrid` and core-only types. No other engine lives
