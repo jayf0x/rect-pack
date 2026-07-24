@@ -5,4 +5,4 @@ demo/dist
 .DS_Store
 .env
 .idea
-.claude
+.iterations

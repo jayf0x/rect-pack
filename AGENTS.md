@@ -10,25 +10,19 @@ it before making structural changes.**
 
 ## Layout
 
-- `src/core.ts` — the allocator (`layoutGrid`). The heart of the library: a squarified treemap
-  in continuous `[0,1]x[0,1]` space. Output is fractional (`{ id, x, y, w, h }`), not integer cells.
-- `src/types.ts` — core-only types (`GridInput`, `GridPlacement`, `GridOptions`). No `react` import
-  here — this is what keeps `src/index.ts` usable without the `react` peer dependency installed.
-- `src/react.tsx` — `<Grid>` / `<GridItem>`, the `@weighted-grid/react` entry. Owns every
-  React-specific type (`GridProps`, `GridItemProps`, ...) and the `GridItem` component itself.
-  One `mode` prop picks the engine (no silent flip), one `height` prop (`"fill"` | px) picks the
-  vertical behaviour — those are the only layout switches. `mode="pack"` (default) and `"order"`
-  use the **span grid** (`SpanGrid`): each item maps to an exact native CSS-Grid col/row span via
-  `spanFor`, `pack` back-fills gaps (`grid-auto-flow: dense`), `order` keeps strict source order.
-  `mode="treemap"` uses `TreemapGrid`, rendering the `core.ts` allocator as absolutely-positioned
-  percentage boxes (`weight` is area; item `cols`/`rows` ignored; `isAnimated` is a treemap-only
-  prop, enforced by a discriminated `GridProps` union). `weight` sizes both span axes (equal
-  weights = equal squares); `cols`/`rows` override per-axis. React is an **optional** peer
-  dependency.
-- `src/utils.ts` — render-side helpers used only by `src/react.tsx` (`spanFor`, `toCss`,
-  `asValidElements`, `useReducedMotion`, `defined`).
-- `src/index.ts` — main entry; re-exports `layoutGrid` and core-only types. No other engine lives
-  here — don't re-export anything from `src/react.tsx` or `src/types.ts`'s React-facing cousins.
+- `src/react.tsx` — `<Grid>` / `<GridItem>`, the `@weighted-grid/react` entry and the **one layout
+  engine** (`SpanGrid`). Each item maps to an exact CSS-Grid col/row span via `spanFor` (`weight`
+  sizes both axes; `cols`/`rows` pin an axis and make the item *strict*). `SpanGrid` owns placement
+  (`placeSpans`, strict source order, explicit `grid-column`/`grid-row` lines). The single layout
+  switch is **`fill`** — how leftover cells are resolved: `"none"` (gaps stay), `"stretch"` (default;
+  grow weight-only items fairly into gaps via `fillDeadZones`, capped by `stretch`), `"component"`
+  (render `renderEmpty` in empty cells), `"both"`. `height` (`"fill"` | px) is the only other switch.
+- `src/utils.ts` — placement + render helpers for `src/react.tsx`: `spanFor`, `placeSpans`,
+  `packedRowCount`, `fillDeadZones` (fair round-robin growth), `isElasticItem`, `toCss`, `asGridItems`.
+- `src/core.ts` / `src/types.ts` / `src/index.ts` — the standalone `layoutGrid` allocator (a
+  squarified treemap in continuous `[0,1]²` space, fractional output) + its core-only types. **No
+  longer used by the React grid** (the `treemap` mode was removed); kept as a separate zero-dep
+  export. Candidate for extraction/removal — confirm nobody imports `layoutGrid` standalone first.
 - `tests/core.test.ts` — invariant tests (exact fill, no overlap, in-bounds, area fidelity,
   bounded aspect ratio, determinism). Extend these when touching the allocator.
 - `demo/` — standalone React (Vite) app importing the library from source. Not part of the package.

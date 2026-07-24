@@ -1,5 +1,5 @@
 import { describe, expect, test } from 'bun:test';
-import { packedRowCount, spanFor } from '../src/utils';
+import { fillDeadZones, type Placement, packedRowCount, spanFor } from '../src/utils';
 
 const s = (colSpan: number, rowSpan: number) => ({ colSpan, rowSpan });
 
@@ -63,5 +63,32 @@ describe('spanFor', () => {
   test('non-positive / missing weight falls back to 1', () => {
     expect(spanFor({ weight: 0 }, 6)).toEqual({ colSpan: 1, rowSpan: 1 });
     expect(spanFor({ weight: -3 }, 6)).toEqual({ colSpan: 1, rowSpan: 1 });
+  });
+});
+
+describe('fillDeadZones — fair round-robin growth', () => {
+  const at = (colStart: number): Placement => ({ colStart, rowStart: 0, colSpan: 1, rowSpan: 1 });
+
+  test('two elastic items flanking a gap share it (3/2), not first-eats-all (4/1)', () => {
+    // cols=5, one row: item A at col0, item B at col4, gap = cols 1,2,3. Both border it.
+    const out = fillDeadZones([at(0), at(4)], [true, true], 5, 1);
+    // Round-robin: A grows to 3 wide (cols0-2), B to 2 wide (cols3-4). Greedy would give 4/1.
+    expect(out.map((p) => p.colSpan)).toEqual([3, 2]);
+    // Gap-free, no overlap: the two spans tile all 5 columns exactly once.
+    const covered = new Array(5).fill(0);
+    for (const p of out) for (let c = p.colStart; c < p.colStart + p.colSpan; c++) covered[c]++;
+    expect(covered).toEqual([1, 1, 1, 1, 1]);
+  });
+
+  test('fixed (non-elastic) items never grow', () => {
+    const out = fillDeadZones([at(0), at(4)], [false, true], 5, 1);
+    expect(out[0].colSpan).toBe(1); // fixed stays put
+    expect(out[1].colSpan).toBe(4); // elastic absorbs the whole gap
+  });
+
+  test('maxStretch caps growth per axis', () => {
+    const out = fillDeadZones([at(0), at(4)], [true, true], 5, 1, 1);
+    // Each may gain at most 1 cell → A 2 wide, B 2 wide, one column stays dead.
+    expect(out.map((p) => p.colSpan)).toEqual([2, 2]);
   });
 });

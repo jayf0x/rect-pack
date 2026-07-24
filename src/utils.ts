@@ -112,17 +112,16 @@ export const packedRowCount = (spans: Span[], cols: number, isPacked: boolean): 
   placeSpans(spans, cols, isPacked).rows;
 
 /** An item is *elastic* when its size comes only from `weight` (no explicit `cols`/`rows`) — it may
- * grow to absorb dead cells. Items with an explicit span, or `isEmpty` negative space, are fixed. */
-export const isElasticItem = (props: GridItemProps): boolean =>
-  !props.isEmpty && props.cols == null && props.rows == null;
+ * grow to absorb dead cells. Items with an explicit span are fixed. */
+export const isElasticItem = (props: GridItemProps): boolean => props.cols == null && props.rows == null;
 
 /**
  * Grow elastic items into adjacent dead cells so the span grid fills without reordering — the
- * "dead-zone-aware" pass on top of {@link placeSpans}. Each elastic item expands in all four
- * directions (right, left, down, up) into cells empty across the whole edge it grows along; fixed
- * items keep their span. `maxStretch` caps how many extra cells an item may gain *per axis* over its
- * original span (`Infinity` = fill as far as possible; `0` = no growth). This is the lazy analog of
- * a justified-gallery compaction: greedy absorption of neighbouring empty space, run to a fixpoint.
+ * "dead-zone-aware" pass on top of {@link placeSpans}. Growth is **fair**: each pass, every elastic
+ * item grows by at most one cell (first free direction: right, left, down, up), so slack is shared
+ * round-robin instead of the first item eating it all. Repeats to a fixpoint. `maxStretch` caps how
+ * many extra cells an item may gain *per axis* over its original span (`Infinity` = fill as far as
+ * possible; `0` = no growth). Fixed items keep their span.
  * Returns a fresh placement array, same length/order as the input. Deterministic.
  */
 export const fillDeadZones = (
@@ -154,32 +153,30 @@ export const fillDeadZones = (
     return true;
   };
 
-  // Fixpoint: one item growing can open a gap adjacent to another. Bounded by total cells.
+  // Fair fixpoint: each pass, every elastic item grows by at most ONE cell (first free direction).
+  // Sharing slack across passes keeps growth even (A +1, then B +1) instead of A eating it all.
   let changed = true;
   while (changed) {
     changed = false;
     for (let i = 0; i < out.length; i++) {
       if (!isElastic[i]) continue;
       const p = out[i];
-      const colRoom = () => p.colSpan - orig[i].colSpan < maxStretch;
-      const rowRoom = () => p.rowSpan - orig[i].rowSpan < maxStretch;
-      while (colRoom() && colFree(p, p.colStart + p.colSpan)) {
+      const colRoom = p.colSpan - orig[i].colSpan < maxStretch;
+      const rowRoom = p.rowSpan - orig[i].rowSpan < maxStretch;
+      if (colRoom && colFree(p, p.colStart + p.colSpan)) {
         for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) set(r, p.colStart + p.colSpan);
         p.colSpan++;
         changed = true;
-      }
-      while (colRoom() && colFree(p, p.colStart - 1)) {
+      } else if (colRoom && colFree(p, p.colStart - 1)) {
         p.colStart--;
         for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) set(r, p.colStart);
         p.colSpan++;
         changed = true;
-      }
-      while (rowRoom() && rowFree(p, p.rowStart + p.rowSpan)) {
+      } else if (rowRoom && rowFree(p, p.rowStart + p.rowSpan)) {
         for (let c = p.colStart; c < p.colStart + p.colSpan; c++) set(p.rowStart + p.rowSpan, c);
         p.rowSpan++;
         changed = true;
-      }
-      while (rowRoom() && rowFree(p, p.rowStart - 1)) {
+      } else if (rowRoom && rowFree(p, p.rowStart - 1)) {
         p.rowStart--;
         for (let c = p.colStart; c < p.colStart + p.colSpan; c++) set(p.rowStart, c);
         p.rowSpan++;

@@ -122,7 +122,7 @@ export const showcaseItems = (count = 12): GridItemProps[] => {
   const items: GridItemProps[] = [];
   for (let i = 0; i < count; i++) {
     const empty = emptyTiles.find((e) => e.at === i);
-    if (empty) items.push({ cols: empty.cols, rows: empty.rows, isEmpty: true });
+    if (empty) items.push({ cols: empty.cols, rows: empty.rows });
     items.push({ weight: weightForIndex(i) });
   }
   return items;

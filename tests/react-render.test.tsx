@@ -8,10 +8,13 @@ import { Grid, GridItem } from '../src/react';
 // `asGridItems` looks one level deep for a real GridItem before giving up.
 const Wrapper = ({ children }: { children?: React.ReactNode }) => <>{children}</>;
 
+const colSpans = (html: string) =>
+  [...html.matchAll(/grid-column:\d+ \/ span (\d+)/g)].map((m) => Number(m[1]));
+
 describe('Grid (SSR render)', () => {
-  test('finds a GridItem wrapped one level deep by another component', () => {
+  test('finds a GridItem wrapped one level deep, emits explicit line-based placement', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={5} height={20} gap={3}>
+      <Grid cols={12} fill="none" height={20} gap={3}>
         <Wrapper>
           <GridItem weight={4}>wrapped</GridItem>
         </Wrapper>
@@ -21,8 +24,9 @@ describe('Grid (SSR render)', () => {
 
     expect(html).toContain('wrapped<');
     expect(html).toContain('plain<');
-    expect(html).toContain('grid-column:span 4');
-    expect(html).toContain('grid-column:span 1');
+    // Explicit `{start} / span {n}`, never bare `span n` — the grid owns placement.
+    expect(html).toContain('grid-column:1 / span 4');
+    expect(html).not.toContain('grid-column:span');
   });
 
   test('a <Grid> with no props at all still gets every default', () => {
@@ -38,90 +42,62 @@ describe('Grid (SSR render)', () => {
     expect(html).toContain('gap:8px');
   });
 
-  test("forwards each GridItem's children into its cell", () => {
-    const html = renderToStaticMarkup(
-      <Grid cols={5} height={20} gap={3}>
-        <GridItem weight={1}>test_</GridItem>
-        <GridItem weight={2}>test_s</GridItem>
-        <GridItem weight={4}>test_ww</GridItem>
-      </Grid>,
-    );
-
-    expect(html).toContain('test_<');
-    expect(html).toContain('test_s<');
-    expect(html).toContain('test_ww<');
-  });
-
   test('weight sizes both axes; cols/rows override per-axis', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={12}>
+      <Grid cols={12} fill="none">
         <GridItem weight={2}>square</GridItem>
         <GridItem cols={4} rows={2}>wide</GridItem>
       </Grid>,
     );
 
-    expect(html).toContain('grid-column:span 2;grid-row:span 2');
-    expect(html).toContain('grid-column:span 4;grid-row:span 2');
+    expect(html).toContain('grid-column:1 / span 2;grid-row:1 / span 2');
+    expect(html).toContain('grid-column:3 / span 4;grid-row:1 / span 2');
   });
 
-  test('isEmpty reserves span but renders inert negative space (no gridcell, no content)', () => {
+  test('fill="none" leaves raw source-order spans (no growth)', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={12}>
-        <GridItem cols={3} rows={2} isEmpty />
+      <Grid cols={12} fill="none">
+        <GridItem weight={2}>a</GridItem>
+        <GridItem weight={2}>b</GridItem>
+      </Grid>,
+    );
+    expect(colSpans(html)).toEqual([2, 2]);
+  });
+
+  test('fill="stretch" (default) grows weight-only items into the dead columns', () => {
+    // Two 2-wide elastic items in 12 cols: raw leaves 8 trailing dead cells; stretch fills the row.
+    const html = renderToStaticMarkup(
+      <Grid cols={12} stretch={Infinity}>
+        <GridItem weight={2}>a</GridItem>
+        <GridItem weight={2}>b</GridItem>
+      </Grid>,
+    );
+    expect(html).toContain('grid-column:1 / span'); // first item pinned to line 1
+    expect(colSpans(html).reduce((a, b) => a + b, 0)).toBe(12); // no dead columns
+  });
+
+  test('strict items (explicit cols/rows) never stretch; only weight items fill', () => {
+    const html = renderToStaticMarkup(
+      <Grid cols={12} stretch={Infinity}>
+        <GridItem cols={2} rows={1}>fixed</GridItem>
+        <GridItem weight={1}>elastic</GridItem>
+      </Grid>,
+    );
+    // The fixed 2×1 keeps its span at line 1; the elastic item absorbs the remaining 10 columns.
+    expect(html).toContain('grid-column:1 / span 2');
+    expect(colSpans(html)).toContain(10);
+  });
+
+  test('fill="component" renders renderEmpty in every empty cell', () => {
+    const html = renderToStaticMarkup(
+      <Grid cols={4} rows={2} fill="component" renderEmpty={<i>VOID</i>}>
         <GridItem weight={1}>a</GridItem>
       </Grid>,
     );
-
+    // 4×2 = 8 cells, one covered by `a` → 7 empty cells each holding the placeholder.
+    expect(html).toContain('a<');
     expect(html).toContain('aria-hidden');
-    expect(html).toContain('grid-column:span 3;grid-row:span 2');
-  });
-
-  test('mode="order" uses strict source order; default packs (dense back-fill)', () => {
-    const packed = renderToStaticMarkup(
-      <Grid cols={12}>
-        <GridItem weight={1}>a</GridItem>
-      </Grid>,
-    );
-    const strict = renderToStaticMarkup(
-      <Grid cols={12} mode="order">
-        <GridItem weight={1}>a</GridItem>
-      </Grid>,
-    );
-
-    expect(packed).toContain('grid-auto-flow:row dense');
-    expect(strict).toContain('grid-auto-flow:row');
-    expect(strict).not.toContain('dense');
-  });
-
-  test('mode="order" emits explicit dead-zone-filled placement, not bare spans', () => {
-    // Two 2-wide elastic items in a 12-col grid: raw spans leave 8 trailing dead cells; the fill
-    // grows them into explicit line-based placement so the row fills. `stretch={Infinity}` lets the
-    // trailing item absorb the whole gap. Order is preserved.
-    const html = renderToStaticMarkup(
-      <Grid cols={12} mode="order" stretch={Infinity}>
-        <GridItem weight={2}>a</GridItem>
-        <GridItem weight={2}>b</GridItem>
-      </Grid>,
-    );
-
-    // Explicit `start / span N`, not `span N` alone; first item pinned to column line 1.
-    expect(html).toContain('grid-column:1 / span');
-    expect(html).not.toContain('grid-column:span 2;grid-row:span 2');
-    // No dead columns left: the two items together cover all 12 columns.
-    const spans = [...html.matchAll(/grid-column:\d+ \/ span (\d+)/g)].map((m) => Number(m[1]));
-    expect(spans.reduce((a, b) => a + b, 0)).toBe(12);
-  });
-
-  test('stretch={0} disables the fill: order mode emits raw source-order spans', () => {
-    const html = renderToStaticMarkup(
-      <Grid cols={12} mode="order" stretch={0}>
-        <GridItem weight={2}>a</GridItem>
-        <GridItem weight={2}>b</GridItem>
-      </Grid>,
-    );
-    // Explicit placement is still emitted, but no item grew past its natural 2×2.
-    const spans = [...html.matchAll(/grid-column:\d+ \/ span (\d+)/g)].map((m) => Number(m[1]));
-    expect(spans).toEqual([2, 2]);
+    expect((html.match(/VOID/g) ?? []).length).toBe(7);
   });
 
   test('rows always draws row tracks — height="fill" splits, fixed height reserves', () => {
@@ -144,7 +120,7 @@ describe('Grid (SSR render)', () => {
   test('omitting rows auto-fills height: exactly the occupied rows stretch (1fr)', () => {
     // 14 one-cell items in 12 columns occupy 2 rows — both stretch to fill, no guessed count.
     const html = renderToStaticMarkup(
-      <Grid cols={12}>
+      <Grid cols={12} fill="none">
         {Array.from({ length: 14 }, (_, i) => (
           <GridItem key={i} weight={1}>
             {`i${i}`}
@@ -164,24 +140,8 @@ describe('Grid (SSR render)', () => {
       </Grid>,
     );
 
-    // Two gradients (vertical + horizontal), sized by cols and rows.
     expect(html).toContain('background-size:calc(100% / 6) calc(100% / 4)');
     expect((html.match(/linear-gradient/g) ?? []).length).toBe(2);
-  });
-
-  test('mode="treemap" uses the fractional squarified engine', () => {
-    const html = renderToStaticMarkup(
-      <Grid cols={5} mode="treemap" height={20} gap={3}>
-        <GridItem weight={1}>a</GridItem>
-        <GridItem weight={2}>b</GridItem>
-        <GridItem weight={4}>c</GridItem>
-      </Grid>,
-    );
-
-    const widths = [...html.matchAll(/width:([\d.]+)%/g)].map((m) => Number(m[1]));
-    expect(widths.length).toBeGreaterThan(0);
-    // height = rowHeight * neededRows(3, cols=5, rows=7 default) = 20 * 7.
-    expect(html).toContain('height:calc(20px * 7)');
   });
 
   // Regression: an explicitly-passed `undefined` prop must fall back to its default, not clobber it.

@@ -1,19 +1,16 @@
 /**
- * `@weighted-grid/react` — thin React wrapper over {@link ./core}.
- *
- * One `mode` prop picks the engine, one `height` prop picks the vertical behaviour. Nothing else
- * toggles layout — no stack of interacting booleans. `react` is a peer dependency, not bundled.
+ * `@weighted-grid/react` — a weighted CSS-Grid: items sized by `weight` (or exact `cols`/`rows`
+ * spans), laid out in strict source order, with a `fill` strategy deciding how leftover cells are
+ * handled. One engine, one switch (`fill`). `react` is a peer dependency, not bundled.
  */
 import {
   memo,
-  useMemo,
   type CSSProperties,
   type PropsWithChildren,
   type ReactElement,
+  type ReactNode,
 } from "react";
-import { neededRows, layoutGrid } from "./core";
 import {
-  useReducedMotion,
   toCss,
   spanFor,
   packedRowCount,
@@ -23,78 +20,54 @@ import {
   asGridItems,
 } from "./utils";
 
-export type GridMode = "pack" | "order" | "treemap";
+/** How leftover cells are resolved after placement:
+ * - `"none"` — raw spans; gaps stay.
+ * - `"stretch"` (default) — grow non-strict (weight-only) items fairly into gaps, capped by `stretch`.
+ * - `"component"` — leave items as-is; render `renderEmpty` in every empty cell.
+ * - `"both"` — stretch first, then render `renderEmpty` in whatever cells stretch couldn't reach. */
+export type FillMode = "none" | "stretch" | "component" | "both";
 
 export type GridItemProps = PropsWithChildren<{
-  /** Default size for *both* axes: `weight={2}` is a 2×2 block, so equal weights are equal
-   * squares. `cols`/`rows` override it per-axis. Defaults to 1. In `mode="treemap"` `weight` is
-   * relative *area* instead, and `cols`/`rows` here are ignored (the treemap has no fixed cells). */
+  /** Relative size, flexbox-`flex`-style ("how much of the grid do I get"). Fills whichever axis you
+   * don't pin with `cols`/`rows`; pin neither and it drives both (`weight={2}` → a 2×2 block, so
+   * equal weights are equal squares). Defaults to 1. */
   weight?: number;
-  /** Exact column span (overrides `weight` horizontally). Clamped to the grid's `cols`. Ignored in
-   * `mode="treemap"`. */
+  /** Exact column span. Pins the horizontal axis (then `weight` only drives rows). Clamped to `cols`.
+   * An item with an explicit `cols` **or** `rows` is *strict* — it never stretches to fill gaps. */
   cols?: number;
-  /** Exact row span (overrides `weight` vertically). Ignored in `mode="treemap"`. */
+  /** Exact row span. Pins the vertical axis (then `weight` only drives columns). Strict, see `cols`. */
   rows?: number;
-  /** Reserve the item's span as deliberate negative space — no border, no focus, no children. */
-  isEmpty?: boolean;
 }>;
 
-type CommonGridProps = PropsWithChildren<{
-  /** Number of columns. Always fills the container width (there is no width equivalent of
-   * `height` — a grid stretches horizontally by definition). */
+export type GridProps = PropsWithChildren<{
+  /** Number of columns. Always fills the container width. */
   cols?: number;
-  /** Number of row tracks. **Omit it** (the default) and the grid auto-counts the rows its items
-   * occupy, then stretches exactly that many to fill the height — the "auto-fit" behaviour. Set it
-   * to force a fixed track count (which can leave gaps or overflow if it doesn't match the flow).
-   * In `mode="treemap"` it only steers the nominal aspect ratio. */
+  /** Number of row tracks. Omit it (default) and the grid auto-counts the rows its items occupy, then
+   * stretches exactly that many to fill the height. Set it to force a fixed track count. */
   rows?: number;
   gap?: number | string;
-  /** `"fill"` (default): stretch to the parent's height, splitting it into `rows` bands — the
-   * parent must have a height. A number/string (e.g. `80`, `"5rem"`): fixed height per row, and
-   * the container grows downward to fit. */
+  /** `"fill"` (default): stretch to the parent's height, splitting it into `rows` bands — the parent
+   * must have a height. A number/string (e.g. `80`, `"5rem"`): fixed height per row, grid grows down. */
   height?: "fill" | number | string;
-  /** `mode="order"` only: how far elastic (weight-only) items may grow to absorb dead cells, in
-   * extra cells **per axis**. `0` disables the fill (raw source-order spans); a number caps growth
-   * (e.g. `2` → a 2×2 item may reach 4×4); `Infinity` fills as far as possible. Fixed and `isEmpty`
-   * items never grow. Defaults to `2`. Ignored in `pack`/`treemap`. */
+  /** How leftover cells are handled. See {@link FillMode}. Defaults to `"stretch"`. */
+  fill?: FillMode;
+  /** For `fill="stretch"`/`"both"`: how many extra cells a weight-only item may gain **per axis**.
+   * `0` disables growth; `Infinity` fills as far as possible. Defaults to `2`. */
   stretch?: number;
+  /** For `fill="component"`/`"both"`: the node rendered in each empty cell. You own it — no default. */
+  renderEmpty?: ReactNode;
   /** Debug overlay: faint column + row guide lines. */
   isGridVisible?: boolean;
   className?: string;
   style?: CSSProperties;
 }>;
 
-/**
- * `mode` is the single layout switch:
- * - `"pack"` (default) — exact col/row spans, gaps back-filled by later items (`grid-auto-flow:
- *   dense`). Forgiving; item order can shift to fill holes.
- * - `"order"` — exact spans, strict source order, gaps left as-is.
- * - `"treemap"` — the squarified allocator: `weight` is *area*, the container is filled exactly
- *   with **no gaps** and items grow on both axes to absorb the space, all while keeping your input
- *   order. This is the "ordered auto-fit" mode: position control *and* a gap-free fill. Keep
- *   weights within ~3× of each other or small items stretch into slivers. Item `cols`/`rows` are
- *   ignored here. Adds `isAnimated` (invalid in the other modes).
- */
-export type GridProps =
-  | (CommonGridProps & { mode?: "pack" | "order" })
-  | (CommonGridProps & {
-      mode: "treemap";
-      /** Treemap only: smoothly transition boxes when weights/items change. Defaults to `true`,
-       * but `false` under `prefers-reduced-motion` unless set explicitly. */
-      isAnimated?: boolean;
-    });
-
-type SpanGridProps = Required<Omit<CommonGridProps, "children" | "style" | "rows">> & {
+type SpanGridProps = Required<
+  Omit<GridProps, "children" | "style" | "rows" | "renderEmpty">
+> & {
   items: ReactElement<GridItemProps>[];
   rows?: number;
-  isPacked: boolean;
-  style?: CSSProperties;
-};
-
-type TreemapGridProps = Required<Omit<CommonGridProps, "children" | "style" | "rows">> & {
-  items: ReactElement<GridItemProps>[];
-  rows?: number;
-  isAnimated?: boolean;
+  renderEmpty?: ReactNode;
   style?: CSSProperties;
 };
 
@@ -108,30 +81,15 @@ const gridLinesStyle = (cols: number, rows: number): CSSProperties => ({
   backgroundSize: `calc(100% / ${cols}) calc(100% / ${rows})`,
 });
 
-/** Shared cell shell for both layout modes. An empty cell reserves its span but is inert: no
- * gridcell role, no focus, no content. */
-const Cell = ({
-  style,
-  isEmpty,
-  children,
-}: PropsWithChildren<{ style: CSSProperties; isEmpty?: boolean }>) =>
-  isEmpty ? (
-    <div aria-hidden style={style} />
-  ) : (
-    <div role="gridcell" tabIndex={0} style={{ minWidth: 0, minHeight: 0, ...style }}>
-      {children}
-    </div>
-  );
-
-/** Span modes (`pack`/`order`): each item takes an exact col/row span, native CSS Grid places it. */
 const SpanGrid = ({
   items,
   cols,
   rows,
   gap,
   height,
-  isPacked,
+  fill,
   stretch,
+  renderEmpty,
   isGridVisible,
   className,
   style,
@@ -140,27 +98,39 @@ const SpanGrid = ({
   const track = height === "fill" ? "minmax(0, 1fr)" : toCss(height);
   // Auto-count the rows the flow occupies so `1fr` tracks stretch to fill the height; an explicit
   // `rows` forces a fixed count instead.
-  const rowCount = rows ?? packedRowCount(gridSpan, cols, isPacked);
+  const rowCount = rows ?? packedRowCount(gridSpan, cols, false);
 
-  // `order` mode owns placement: grow elastic items into dead cells (all four directions, capped by
-  // `stretch`) for a gap-free fill with strict order preserved. `pack` mode stays with native
-  // `grid-auto-flow: dense` + bare spans.
-  const placed = isPacked
-    ? null
-    : fillDeadZones(
-        placeSpans(gridSpan, cols, false).placements,
-        items.map((it) => isElasticItem(it.props)),
-        cols,
-        rowCount,
-        stretch,
-      );
+  // Own placement (strict source order), then optionally grow weight-only items into dead cells.
+  const base = placeSpans(gridSpan, cols, false).placements;
+  const placed =
+    fill === "stretch" || fill === "both"
+      ? fillDeadZones(
+          base,
+          items.map((it) => isElasticItem(it.props)),
+          cols,
+          rowCount,
+          stretch,
+        )
+      : base;
+
+  // For component/both: find cells no item covers and render `renderEmpty` there. One node per cell
+  // (ponytail: no region merging — predictable, and the caller controls what a single empty cell looks
+  // like; merge only if a real design needs it).
+  const emptyCells: Array<{ r: number; c: number }> = [];
+  if ((fill === "component" || fill === "both") && renderEmpty != null) {
+    const occ = Array.from({ length: rowCount }, () => new Array<boolean>(cols).fill(false));
+    for (const p of placed)
+      for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++)
+        for (let c = p.colStart; c < p.colStart + p.colSpan; c++) if (occ[r]) occ[r][c] = true;
+    for (let r = 0; r < rowCount; r++)
+      for (let c = 0; c < cols; c++) if (!occ[r][c]) emptyCells.push({ r, c });
+  }
 
   const containerStyles: CSSProperties = {
     display: "grid",
     gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))`,
     gridTemplateRows: `repeat(${rowCount}, ${track})`,
     gridAutoRows: track,
-    gridAutoFlow: isPacked ? "row dense" : "row",
     gap: toCss(gap),
     ...(height === "fill" ? { height: "100%" } : {}),
     ...(isGridVisible ? gridLinesStyle(cols, rowCount) : {}),
@@ -170,94 +140,32 @@ const SpanGrid = ({
   return (
     <div className={className} style={containerStyles} role="grid">
       {items.map((item, i) => {
-        const { colSpan, rowSpan } = gridSpan[i];
-        const p = placed?.[i];
-        const cellSpan = p
-          ? {
+        const p = placed[i];
+        return (
+          <div
+            key={item.key ?? i}
+            role="gridcell"
+            tabIndex={0}
+            style={{
+              minWidth: 0,
+              minHeight: 0,
               // 0-indexed model → 1-indexed CSS lines.
               gridColumn: `${p.colStart + 1} / span ${p.colSpan}`,
               gridRow: `${p.rowStart + 1} / span ${p.rowSpan}`,
-            }
-          : { gridColumn: `span ${colSpan}`, gridRow: `span ${rowSpan}` };
-        return (
-          <Cell
-            key={item.key ?? i}
-            isEmpty={item.props.isEmpty}
-            style={cellSpan}
+            }}
           >
             {item.props.children}
-          </Cell>
+          </div>
         );
       })}
-    </div>
-  );
-};
-
-/** Treemap mode: items placed by the squarified allocator, absolutely positioned as percentages. */
-const TreemapGrid = ({
-  items,
-  cols,
-  rows,
-  gap,
-  height,
-  isAnimated,
-  isGridVisible,
-  className,
-  style,
-}: TreemapGridProps) => {
-  const weights = items.map((c) =>
-    typeof c.props.weight === "number" && c.props.weight > 0 ? c.props.weight : 1,
-  );
-
-  // In treemap mode `rows` only steers the nominal aspect ratio; default it when omitted.
-  const rowsForAspect = rows ?? 7;
-  const placements = useMemo(
-    () =>
-      layoutGrid(weights.map((weight, id) => ({ id, weight })), {
-        cols,
-        rows: rowsForAspect,
-        preserveOrder: true,
-      }),
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [weights.join(","), cols, rowsForAspect],
-  );
-
-  const isReducedMotion = useReducedMotion();
-
-  const containerStyle: CSSProperties = {
-    position: "relative",
-    width: "100%",
-    height:
-      height === "fill"
-        ? "100%"
-        : `calc(${toCss(height)} * ${neededRows(items.length, cols, rowsForAspect)})`,
-    ...(isGridVisible ? gridLinesStyle(cols, rowsForAspect) : {}),
-    ...style,
-  };
-
-  const transition: CSSProperties["transition"] = (isAnimated ?? !isReducedMotion)
-    ? "left 260ms ease, top 260ms ease, width 260ms ease, height 260ms ease"
-    : undefined;
-
-  return (
-    <div className={className} style={containerStyle} role="grid">
-      {placements.map((p, i) => (
-        <Cell
-          key={items[i].key ?? i}
-          isEmpty={items[i].props.isEmpty}
-          style={{
-            position: "absolute",
-            left: `${p.x * 100}%`,
-            top: `${p.y * 100}%`,
-            width: `${p.w * 100}%`,
-            height: `${p.h * 100}%`,
-            transition,
-            padding: `calc(${toCss(gap)} / 2)`,
-            boxSizing: "border-box",
-          }}
+      {emptyCells.map(({ r, c }) => (
+        <div
+          key={`empty-${r}-${c}`}
+          aria-hidden
+          style={{ gridColumn: `${c + 1} / span 1`, gridRow: `${r + 1} / span 1` }}
         >
-          {items[i].props.children}
-        </Cell>
+          {renderEmpty}
+        </div>
       ))}
     </div>
   );
@@ -266,23 +174,32 @@ const TreemapGrid = ({
 export const Grid = memo((props: GridProps) => {
   const {
     children,
-    mode = "pack",
     cols = 7,
     rows,
     gap = 8,
     height = "fill",
+    fill = "stretch",
     stretch = 2,
+    renderEmpty,
     isGridVisible = false,
     className = "",
     style,
   } = props;
 
   const items = asGridItems(children);
-  const shared = { items, cols, rows, gap, height, stretch, isGridVisible, className, style };
-
-  if (mode === "treemap") {
-    const isAnimated = "isAnimated" in props ? props.isAnimated : undefined;
-    return <TreemapGrid {...shared} isAnimated={isAnimated} />;
-  }
-  return <SpanGrid {...shared} isPacked={mode === "pack"} />;
+  return (
+    <SpanGrid
+      items={items}
+      cols={cols}
+      rows={rows}
+      gap={gap}
+      height={height}
+      fill={fill}
+      stretch={stretch}
+      renderEmpty={renderEmpty}
+      isGridVisible={isGridVisible}
+      className={className}
+      style={style}
+    />
+  );
 });
