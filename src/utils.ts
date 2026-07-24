@@ -3,9 +3,6 @@ import { GridItem, type GridItemProps } from './react';
 
 export const toCss = (n: number | string): string => (typeof n === 'number' ? `${n}px` : n);
 
-export const useReducedMotion = (): boolean =>
-  typeof window !== 'undefined' && (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false);
-
 /** Valid elements among `children`, matching `isTarget`. A profiler/compiler (e.g. Million Lint)
  * can wrap each element in an instrumentation component, pushing the real one into
  * `props.children` — so an element that fails `isTarget` gets one look one level down before

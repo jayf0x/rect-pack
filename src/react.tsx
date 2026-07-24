@@ -1,31 +1,11 @@
 /**
- * `@weighted-grid/react` — a weighted CSS-Grid: items sized by `weight` (or exact `cols`/`rows`
- * spans), laid out in strict source order, with a `fill` strategy deciding how leftover cells are
- * handled. One engine, one switch (`fill`). `react` is a peer dependency, not bundled.
+ * `weighted-grid` — a weighted CSS-Grid: items sized by `weight` (or exact `cols`/`rows` spans),
+ * laid out in strict source order. Empty cells are resolved one of two ways, a **binary** choice:
+ * pass `fillComponent` and it's rendered in the gaps (items keep their size), or omit it and
+ * weight-only items `stretch` to absorb the gaps. `react` is a peer dependency, not bundled.
  */
-import {
-  memo,
-  type CSSProperties,
-  type PropsWithChildren,
-  type ReactElement,
-  type ReactNode,
-} from "react";
-import {
-  toCss,
-  spanFor,
-  packedRowCount,
-  placeSpans,
-  fillDeadZones,
-  isElasticItem,
-  asGridItems,
-} from "./utils";
-
-/** How leftover cells are resolved after placement:
- * - `"none"` — raw spans; gaps stay.
- * - `"stretch"` (default) — grow non-strict (weight-only) items fairly into gaps, capped by `stretch`.
- * - `"component"` — leave items as-is; render `renderEmpty` in every empty cell.
- * - `"both"` — stretch first, then render `renderEmpty` in whatever cells stretch couldn't reach. */
-export type FillMode = "none" | "stretch" | "component" | "both";
+import { memo, type CSSProperties, type PropsWithChildren, type ReactNode } from "react";
+import { toCss, spanFor, packedRowCount, placeSpans, fillDeadZones, isElasticItem, asGridItems } from "./utils";
 
 export type GridItemProps = PropsWithChildren<{
   /** Relative size, flexbox-`flex`-style ("how much of the grid do I get"). Fills whichever axis you
@@ -40,36 +20,27 @@ export type GridItemProps = PropsWithChildren<{
 }>;
 
 export type GridProps = PropsWithChildren<{
-  /** Number of columns. Always fills the container width. */
+  /** Number of columns. Always scales with the container width. Defaults to 7. */
   cols?: number;
   /** Number of row tracks. Omit it (default) and the grid auto-counts the rows its items occupy, then
    * stretches exactly that many to fill the height. Set it to force a fixed track count. */
   rows?: number;
   gap?: number | string;
-  /** `"fill"` (default): stretch to the parent's height, splitting it into `rows` bands — the parent
-   * must have a height. A number/string (e.g. `80`, `"5rem"`): fixed height per row, grid grows down. */
-  height?: "fill" | number | string;
-  /** How leftover cells are handled. See {@link FillMode}. Defaults to `"stretch"`. */
-  fill?: FillMode;
-  /** For `fill="stretch"`/`"both"`: how many extra cells a weight-only item may gain **per axis**.
-   * `0` disables growth; `Infinity` fills as far as possible. Defaults to `2`. */
+  /** `"auto"` (default): stretch to the parent's height, splitting it into `rows` bands — the parent
+   * must have a height. A number/string (e.g. `100`, `"5rem"`): fixed height per row, grid grows down. */
+  rowHeight?: "auto" | number | string;
+  /** Extra cells a weight-only item may grow **per axis** to absorb gaps (`0` off, `Infinity` default
+   * = fill as far as possible). **Ignored when `fillComponent` is set** — the two are a binary choice:
+   * either items stretch into the gaps, or the component fills them. */
   stretch?: number;
-  /** For `fill="component"`/`"both"`: the node rendered in each empty cell. You own it — no default. */
-  renderEmpty?: ReactNode;
+  /** Rendered in every empty cell. Passing it turns *off* item stretching (see `stretch`); the grid
+   * keeps items at their natural size and drops this node into the gaps instead. Default: undefined. */
+  fillComponent?: ReactNode;
   /** Debug overlay: faint column + row guide lines. */
-  isGridVisible?: boolean;
+  showGrid?: boolean;
   className?: string;
   style?: CSSProperties;
 }>;
-
-type SpanGridProps = Required<
-  Omit<GridProps, "children" | "style" | "rows" | "renderEmpty">
-> & {
-  items: ReactElement<GridItemProps>[];
-  rows?: number;
-  renderEmpty?: ReactNode;
-  style?: CSSProperties;
-};
 
 /** Marker component — `Grid` reads its props and renders its children in the assigned block. */
 export const GridItem = (_: GridItemProps): null => null;
@@ -81,43 +52,44 @@ const gridLinesStyle = (cols: number, rows: number): CSSProperties => ({
   backgroundSize: `calc(100% / ${cols}) calc(100% / ${rows})`,
 });
 
-const SpanGrid = ({
-  items,
-  cols,
-  rows,
-  gap,
-  height,
-  fill,
-  stretch,
-  renderEmpty,
-  isGridVisible,
-  className,
-  style,
-}: SpanGridProps) => {
+export const Grid = memo((props: GridProps) => {
+  const {
+    children,
+    cols = 7,
+    rows,
+    gap = 8,
+    rowHeight = "auto",
+    stretch = Number.POSITIVE_INFINITY,
+    fillComponent,
+    showGrid = false,
+    className = "",
+    style,
+  } = props;
+
+  const items = asGridItems(children);
   const gridSpan = items.map((item) => spanFor(item.props, cols));
-  const track = height === "fill" ? "minmax(0, 1fr)" : toCss(height);
+  const track = rowHeight === "auto" ? "minmax(0, 1fr)" : toCss(rowHeight);
   // Auto-count the rows the flow occupies so `1fr` tracks stretch to fill the height; an explicit
   // `rows` forces a fixed count instead.
   const rowCount = rows ?? packedRowCount(gridSpan, cols, false);
 
-  // Own placement (strict source order), then optionally grow weight-only items into dead cells.
+  // Own placement (strict source order). Binary gap strategy: with `fillComponent`, keep items at
+  // their natural span and drop the node into empty cells; without it, grow weight-only items.
   const base = placeSpans(gridSpan, cols, false).placements;
-  const placed =
-    fill === "stretch" || fill === "both"
-      ? fillDeadZones(
-          base,
-          items.map((it) => isElasticItem(it.props)),
-          cols,
-          rowCount,
-          stretch,
-        )
-      : base;
+  const useComponent = fillComponent != null;
+  const placed = useComponent
+    ? base
+    : fillDeadZones(
+        base,
+        items.map((it) => isElasticItem(it.props)),
+        cols,
+        rowCount,
+        stretch,
+      );
 
-  // For component/both: find cells no item covers and render `renderEmpty` there. One node per cell
-  // (ponytail: no region merging — predictable, and the caller controls what a single empty cell looks
-  // like; merge only if a real design needs it).
+  // Empty cells only matter when the component fills them (one node per cell — predictable).
   const emptyCells: Array<{ r: number; c: number }> = [];
-  if ((fill === "component" || fill === "both") && renderEmpty != null) {
+  if (useComponent) {
     const occ = Array.from({ length: rowCount }, () => new Array<boolean>(cols).fill(false));
     for (const p of placed)
       for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++)
@@ -132,8 +104,8 @@ const SpanGrid = ({
     gridTemplateRows: `repeat(${rowCount}, ${track})`,
     gridAutoRows: track,
     gap: toCss(gap),
-    ...(height === "fill" ? { height: "100%" } : {}),
-    ...(isGridVisible ? gridLinesStyle(cols, rowCount) : {}),
+    ...(rowHeight === "auto" ? { height: "100%" } : {}),
+    ...(showGrid ? gridLinesStyle(cols, rowCount) : {}),
     ...style,
   };
 
@@ -164,42 +136,9 @@ const SpanGrid = ({
           aria-hidden
           style={{ gridColumn: `${c + 1} / span 1`, gridRow: `${r + 1} / span 1` }}
         >
-          {renderEmpty}
+          {fillComponent}
         </div>
       ))}
     </div>
-  );
-};
-
-export const Grid = memo((props: GridProps) => {
-  const {
-    children,
-    cols = 7,
-    rows,
-    gap = 8,
-    height = "fill",
-    fill = "stretch",
-    stretch = 2,
-    renderEmpty,
-    isGridVisible = false,
-    className = "",
-    style,
-  } = props;
-
-  const items = asGridItems(children);
-  return (
-    <SpanGrid
-      items={items}
-      cols={cols}
-      rows={rows}
-      gap={gap}
-      height={height}
-      fill={fill}
-      stretch={stretch}
-      renderEmpty={renderEmpty}
-      isGridVisible={isGridVisible}
-      className={className}
-      style={style}
-    />
   );
 });

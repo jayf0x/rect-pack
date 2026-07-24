@@ -14,7 +14,7 @@ const colSpans = (html: string) =>
 describe('Grid (SSR render)', () => {
   test('finds a GridItem wrapped one level deep, emits explicit line-based placement', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={12} fill="none" height={20} gap={3}>
+      <Grid cols={12} stretch={0} rowHeight={20} gap={3}>
         <Wrapper>
           <GridItem weight={4}>wrapped</GridItem>
         </Wrapper>
@@ -44,7 +44,7 @@ describe('Grid (SSR render)', () => {
 
   test('weight sizes both axes; cols/rows override per-axis', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={12} fill="none">
+      <Grid cols={12} stretch={0}>
         <GridItem weight={2}>square</GridItem>
         <GridItem cols={4} rows={2}>wide</GridItem>
       </Grid>,
@@ -54,9 +54,9 @@ describe('Grid (SSR render)', () => {
     expect(html).toContain('grid-column:3 / span 4;grid-row:1 / span 2');
   });
 
-  test('fill="none" leaves raw source-order spans (no growth)', () => {
+  test('stretch={0} leaves raw source-order spans (no growth)', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={12} fill="none">
+      <Grid cols={12} stretch={0}>
         <GridItem weight={2}>a</GridItem>
         <GridItem weight={2}>b</GridItem>
       </Grid>,
@@ -64,10 +64,10 @@ describe('Grid (SSR render)', () => {
     expect(colSpans(html)).toEqual([2, 2]);
   });
 
-  test('fill="stretch" (default) grows weight-only items into the dead columns', () => {
+  test('stretch (default ∞) grows weight-only items into the dead columns', () => {
     // Two 2-wide elastic items in 12 cols: raw leaves 8 trailing dead cells; stretch fills the row.
     const html = renderToStaticMarkup(
-      <Grid cols={12} stretch={Infinity}>
+      <Grid cols={12}>
         <GridItem weight={2}>a</GridItem>
         <GridItem weight={2}>b</GridItem>
       </Grid>,
@@ -78,7 +78,7 @@ describe('Grid (SSR render)', () => {
 
   test('strict items (explicit cols/rows) never stretch; only weight items fill', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={12} stretch={Infinity}>
+      <Grid cols={12}>
         <GridItem cols={2} rows={1}>fixed</GridItem>
         <GridItem weight={1}>elastic</GridItem>
       </Grid>,
@@ -88,39 +88,40 @@ describe('Grid (SSR render)', () => {
     expect(colSpans(html)).toContain(10);
   });
 
-  test('fill="component" renders renderEmpty in every empty cell', () => {
+  test('fillComponent fills every empty cell AND disables item stretching (binary choice)', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={4} rows={2} fill="component" renderEmpty={<i>VOID</i>}>
+      <Grid cols={4} rows={2} fillComponent={<i>VOID</i>}>
         <GridItem weight={1}>a</GridItem>
       </Grid>,
     );
-    // 4×2 = 8 cells, one covered by `a` → 7 empty cells each holding the placeholder.
+    // 4×2 = 8 cells. With fillComponent, `a` stays 1×1 (no stretch) and the other 7 cells get the node.
     expect(html).toContain('a<');
+    expect(html).toContain('grid-column:1 / span 1;grid-row:1 / span 1'); // `a` did not grow
     expect(html).toContain('aria-hidden');
     expect((html.match(/VOID/g) ?? []).length).toBe(7);
   });
 
-  test('rows always draws row tracks — height="fill" splits, fixed height reserves', () => {
-    const fill = renderToStaticMarkup(
+  test('rows always draws row tracks — rowHeight="auto" splits, fixed rowHeight reserves', () => {
+    const auto = renderToStaticMarkup(
       <Grid cols={4} rows={3}>
         <GridItem weight={1}>a</GridItem>
       </Grid>,
     );
     const fixed = renderToStaticMarkup(
-      <Grid cols={4} rows={3} height={40}>
+      <Grid cols={4} rows={3} rowHeight={40}>
         <GridItem weight={1}>a</GridItem>
       </Grid>,
     );
 
-    expect(fill).toContain('grid-template-rows:repeat(3, minmax(0, 1fr))');
-    expect(fill).toContain('height:100%');
+    expect(auto).toContain('grid-template-rows:repeat(3, minmax(0, 1fr))');
+    expect(auto).toContain('height:100%');
     expect(fixed).toContain('grid-template-rows:repeat(3, 40px)');
   });
 
   test('omitting rows auto-fills height: exactly the occupied rows stretch (1fr)', () => {
     // 14 one-cell items in 12 columns occupy 2 rows — both stretch to fill, no guessed count.
     const html = renderToStaticMarkup(
-      <Grid cols={12} fill="none">
+      <Grid cols={12} stretch={0}>
         {Array.from({ length: 14 }, (_, i) => (
           <GridItem key={i} weight={1}>
             {`i${i}`}
@@ -133,9 +134,9 @@ describe('Grid (SSR render)', () => {
     expect(html).toContain('height:100%');
   });
 
-  test('isGridVisible draws both column and row guide lines', () => {
+  test('showGrid draws both column and row guide lines', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={6} rows={4} isGridVisible>
+      <Grid cols={6} rows={4} showGrid>
         <GridItem weight={1}>a</GridItem>
       </Grid>,
     );
@@ -147,7 +148,7 @@ describe('Grid (SSR render)', () => {
   // Regression: an explicitly-passed `undefined` prop must fall back to its default, not clobber it.
   test('an explicitly-undefined prop falls back to its default instead of breaking the CSS', () => {
     const html = renderToStaticMarkup(
-      <Grid cols={5} gap={undefined} height={undefined}>
+      <Grid cols={5} gap={undefined} rowHeight={undefined}>
         <GridItem weight={1}>a</GridItem>
         <GridItem weight={2}>b</GridItem>
       </Grid>,

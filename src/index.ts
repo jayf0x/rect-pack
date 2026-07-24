@@ -1,3 +1,1 @@
-export { layoutGrid, neededRows } from './core';
-
-export type { GridInput, GridOptions, GridPlacement } from './types';
+export { Grid, GridItem, type GridItemProps, type GridProps } from './react';

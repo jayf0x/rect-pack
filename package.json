@@ -2,7 +2,7 @@
   "name": "weighted-grid",
   "version": "1.2.0",
   "type": "module",
-  "description": "A zero-dependency, weight-driven grid that fills its container using a squarified treemap, agnostic to what's inside each cell.",
+  "description": "A zero-dependency, weight-driven React grid that fills its container, agnostic to what's inside each cell.",
   "author": "jayF0x",
   "license": "MIT",
   "module": "./dist/index.js",
@@ -73,11 +73,9 @@
   "keywords": [
     "react",
     "grid",
-    "treemap",
-    "squarified-treemap",
-    "layout-algorithm",
     "weighted-layout",
     "responsive-grid",
+    "css-grid",
     "typescript"
   ],
   "repository": {
