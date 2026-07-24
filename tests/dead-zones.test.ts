@@ -39,27 +39,37 @@ describe('analyzeSpans', () => {
   });
 });
 
-describe('Showcase QA baseline', () => {
-  // Anchors the current state so improvements are visible. When the engine gets smarter, update
-  // these numbers deliberately — a drop is the whole point.
-  test('desktop Showcase (order mode, cols=12) still has dead zones today', () => {
+describe('Showcase QA baseline (verbatim weightForIndex grid)', () => {
+  // Anchors the real desktop layout so improvements are visible. When the engine gets smarter,
+  // update these numbers deliberately — a drop is the whole point.
+  test('raw order-mode layout has the dead zones we saw in QA', () => {
     const r = analyzeItems(showcaseItems(), 12);
-    expect(r.rows).toBe(6);
-    expect(r.deadPct).toBeGreaterThan(0);
+    expect(r.rows).toBe(13); // weight-4 items are 4×4, so the grid runs tall
+    expect(r.dead).toBe(30);
+    expect(r.badness).toBe(106);
     // Sanity: reported dead equals the map's '.' count.
     expect(r.dead).toBe((r.map.match(/\./g) ?? []).length);
   });
 
-  test('the dead-zone fill lowers dead space and badness without adding rows', () => {
+  test('4-directional fill collapses the obvious gaps; the cap trades fill for gentleness', () => {
     const raw = analyzeItems(showcaseItems(), 12);
-    const filled = analyzeItemsFilled(showcaseItems(), 12);
-    expect(filled.rows).toBe(raw.rows); // fill only grows columns, never reflows rows
-    expect(filled.dead).toBeLessThan(raw.dead);
-    expect(filled.badness).toBeLessThanOrEqual(raw.badness);
-    // Baseline anchors — a further drop is the goal; update these deliberately when it improves.
-    expect(raw.dead).toBe(17);
-    expect(filled.dead).toBe(15);
-    // The remaining holes are structural: every gap borders a fixed item or an elastic item whose
-    // second row is occupied (the HARDER case backlogged in .claude/next-agent-prompt.md §Step 3).
+    const cap1 = analyzeItemsFilled(showcaseItems(), 12, 1);
+    const cap2 = analyzeItemsFilled(showcaseItems(), 12, 2);
+    const full = analyzeItemsFilled(showcaseItems(), 12, Number.POSITIVE_INFINITY);
+
+    // The fill only grows existing items — never reflows into new rows.
+    for (const r of [cap1, cap2, full]) expect(r.rows).toBe(raw.rows);
+
+    // Monotonic: a looser cap fills at least as much.
+    expect(cap1.dead).toBeLessThan(raw.dead);
+    expect(cap2.dead).toBeLessThanOrEqual(cap1.dead);
+    expect(full.dead).toBeLessThanOrEqual(cap2.dead);
+
+    // Baseline anchors (see `bun scripts/dead-zones.ts`).
+    expect(raw.dead).toBe(30); // 19%
+    expect(cap1.dead).toBe(17); // 11%
+    expect(cap2.dead).toBe(13); // 8%
+    expect(full.dead).toBe(9); // 6% — remainder are 1–2 cell "eyes" beside the fixed VoidTiles
+    expect(full.badness).toBe(17);
   });
 });

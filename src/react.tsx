@@ -53,6 +53,11 @@ type CommonGridProps = PropsWithChildren<{
    * parent must have a height. A number/string (e.g. `80`, `"5rem"`): fixed height per row, and
    * the container grows downward to fit. */
   height?: "fill" | number | string;
+  /** `mode="order"` only: how far elastic (weight-only) items may grow to absorb dead cells, in
+   * extra cells **per axis**. `0` disables the fill (raw source-order spans); a number caps growth
+   * (e.g. `2` → a 2×2 item may reach 4×4); `Infinity` fills as far as possible. Fixed and `isEmpty`
+   * items never grow. Defaults to `2`. Ignored in `pack`/`treemap`. */
+  stretch?: number;
   /** Debug overlay: faint column + row guide lines. */
   isGridVisible?: boolean;
   className?: string;
@@ -126,6 +131,7 @@ const SpanGrid = ({
   gap,
   height,
   isPacked,
+  stretch,
   isGridVisible,
   className,
   style,
@@ -136,8 +142,9 @@ const SpanGrid = ({
   // `rows` forces a fixed count instead.
   const rowCount = rows ?? packedRowCount(gridSpan, cols, isPacked);
 
-  // `order` mode owns placement: grow elastic items into dead cells for a gap-free fill (strict
-  // order preserved). `pack` mode stays with native `grid-auto-flow: dense` + bare spans.
+  // `order` mode owns placement: grow elastic items into dead cells (all four directions, capped by
+  // `stretch`) for a gap-free fill with strict order preserved. `pack` mode stays with native
+  // `grid-auto-flow: dense` + bare spans.
   const placed = isPacked
     ? null
     : fillDeadZones(
@@ -145,6 +152,7 @@ const SpanGrid = ({
         items.map((it) => isElasticItem(it.props)),
         cols,
         rowCount,
+        stretch,
       );
 
   const containerStyles: CSSProperties = {
@@ -263,13 +271,14 @@ export const Grid = memo((props: GridProps) => {
     rows,
     gap = 8,
     height = "fill",
+    stretch = 2,
     isGridVisible = false,
     className = "",
     style,
   } = props;
 
   const items = asGridItems(children);
-  const shared = { items, cols, rows, gap, height, isGridVisible, className, style };
+  const shared = { items, cols, rows, gap, height, stretch, isGridVisible, className, style };
 
   if (mode === "treemap") {
     const isAnimated = "isAnimated" in props ? props.isAnimated : undefined;

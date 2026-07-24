@@ -117,9 +117,12 @@ export const isElasticItem = (props: GridItemProps): boolean =>
   !props.isEmpty && props.cols == null && props.rows == null;
 
 /**
- * Grow elastic items into adjacent dead cells so the span grid fills its width without reordering —
- * the "dead-zone-aware" pass on top of {@link placeSpans}. Each elastic item expands (right first,
- * then left) into columns that are empty across every row it spans; fixed items keep their span.
+ * Grow elastic items into adjacent dead cells so the span grid fills without reordering — the
+ * "dead-zone-aware" pass on top of {@link placeSpans}. Each elastic item expands in all four
+ * directions (right, left, down, up) into cells empty across the whole edge it grows along; fixed
+ * items keep their span. `maxStretch` caps how many extra cells an item may gain *per axis* over its
+ * original span (`Infinity` = fill as far as possible; `0` = no growth). This is the lazy analog of
+ * a justified-gallery compaction: greedy absorption of neighbouring empty space, run to a fixpoint.
  * Returns a fresh placement array, same length/order as the input. Deterministic.
  */
 export const fillDeadZones = (
@@ -127,18 +130,27 @@ export const fillDeadZones = (
   isElastic: boolean[],
   cols: number,
   rows: number,
+  maxStretch = Number.POSITIVE_INFINITY,
 ): Placement[] => {
   const out = placements.map((p) => ({ ...p }));
+  const orig = placements.map((p) => ({ colSpan: p.colSpan, rowSpan: p.rowSpan }));
   const occ: boolean[][] = Array.from({ length: rows }, () => new Array<boolean>(cols).fill(false));
-  const paint = (p: Placement, c: number) => {
-    for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) if (occ[r]) occ[r][c] = true;
+  const set = (r: number, c: number) => {
+    if (occ[r]) occ[r][c] = true;
   };
-  for (const p of out) for (let c = p.colStart; c < p.colStart + p.colSpan; c++) paint(p, c);
+  for (const p of out)
+    for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++)
+      for (let c = p.colStart; c < p.colStart + p.colSpan; c++) set(r, c);
 
-  // A column is growable for `p` only if it's in-bounds and free across all of p's rows.
+  // A column/row edge is growable for `p` only if in-bounds and free across the whole edge.
   const colFree = (p: Placement, c: number): boolean => {
     if (c < 0 || c >= cols) return false;
     for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) if (!occ[r] || occ[r][c]) return false;
+    return true;
+  };
+  const rowFree = (p: Placement, r: number): boolean => {
+    if (r < 0 || r >= rows || !occ[r]) return false;
+    for (let c = p.colStart; c < p.colStart + p.colSpan; c++) if (occ[r][c]) return false;
     return true;
   };
 
@@ -149,15 +161,28 @@ export const fillDeadZones = (
     for (let i = 0; i < out.length; i++) {
       if (!isElastic[i]) continue;
       const p = out[i];
-      while (colFree(p, p.colStart + p.colSpan)) {
-        paint(p, p.colStart + p.colSpan);
+      const colRoom = () => p.colSpan - orig[i].colSpan < maxStretch;
+      const rowRoom = () => p.rowSpan - orig[i].rowSpan < maxStretch;
+      while (colRoom() && colFree(p, p.colStart + p.colSpan)) {
+        for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) set(r, p.colStart + p.colSpan);
         p.colSpan++;
         changed = true;
       }
-      while (colFree(p, p.colStart - 1)) {
+      while (colRoom() && colFree(p, p.colStart - 1)) {
         p.colStart--;
+        for (let r = p.rowStart; r < p.rowStart + p.rowSpan; r++) set(r, p.colStart);
         p.colSpan++;
-        paint(p, p.colStart);
+        changed = true;
+      }
+      while (rowRoom() && rowFree(p, p.rowStart + p.rowSpan)) {
+        for (let c = p.colStart; c < p.colStart + p.colSpan; c++) set(p.rowStart + p.rowSpan, c);
+        p.rowSpan++;
+        changed = true;
+      }
+      while (rowRoom() && rowFree(p, p.rowStart - 1)) {
+        p.rowStart--;
+        for (let c = p.colStart; c < p.colStart + p.colSpan; c++) set(p.rowStart, c);
+        p.rowSpan++;
         changed = true;
       }
     }

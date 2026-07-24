@@ -95,9 +95,10 @@ describe('Grid (SSR render)', () => {
 
   test('mode="order" emits explicit dead-zone-filled placement, not bare spans', () => {
     // Two 2-wide elastic items in a 12-col grid: raw spans leave 8 trailing dead cells; the fill
-    // grows them into explicit line-based placement so the row fills. Order is preserved.
+    // grows them into explicit line-based placement so the row fills. `stretch={Infinity}` lets the
+    // trailing item absorb the whole gap. Order is preserved.
     const html = renderToStaticMarkup(
-      <Grid cols={12} mode="order">
+      <Grid cols={12} mode="order" stretch={Infinity}>
         <GridItem weight={2}>a</GridItem>
         <GridItem weight={2}>b</GridItem>
       </Grid>,
@@ -109,6 +110,18 @@ describe('Grid (SSR render)', () => {
     // No dead columns left: the two items together cover all 12 columns.
     const spans = [...html.matchAll(/grid-column:\d+ \/ span (\d+)/g)].map((m) => Number(m[1]));
     expect(spans.reduce((a, b) => a + b, 0)).toBe(12);
+  });
+
+  test('stretch={0} disables the fill: order mode emits raw source-order spans', () => {
+    const html = renderToStaticMarkup(
+      <Grid cols={12} mode="order" stretch={0}>
+        <GridItem weight={2}>a</GridItem>
+        <GridItem weight={2}>b</GridItem>
+      </Grid>,
+    );
+    // Explicit placement is still emitted, but no item grew past its natural 2×2.
+    const spans = [...html.matchAll(/grid-column:\d+ \/ span (\d+)/g)].map((m) => Number(m[1]));
+    expect(spans).toEqual([2, 2]);
   });
 
   test('rows always draws row tracks — height="fill" splits, fixed height reserves', () => {

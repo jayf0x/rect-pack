@@ -75,10 +75,15 @@ const occupancyOf = (placements: Placement[], cols: number, rows: number): boole
 export const analyzeItems = (items: GridItemProps[], cols: number, isPacked = false): DeadZoneReport =>
   analyzeSpans(items.map((p) => spanFor(p, cols)), cols, isPacked);
 
-/** Analyze the same items *after* the order-mode dead-zone fill — what `<Grid mode="order">` renders. */
-export const analyzeItemsFilled = (items: GridItemProps[], cols: number): DeadZoneReport => {
+/** Analyze the same items *after* the order-mode dead-zone fill — what `<Grid mode="order">` renders.
+ * `maxStretch` matches the `stretch` prop (extra cells per axis an elastic item may grow). */
+export const analyzeItemsFilled = (
+  items: GridItemProps[],
+  cols: number,
+  maxStretch = Number.POSITIVE_INFINITY,
+): DeadZoneReport => {
   const { placements, rows } = placeSpans(items.map((p) => spanFor(p, cols)), cols, false);
-  const filled = fillDeadZones(placements, items.map(isElasticItem), cols, rows);
+  const filled = fillDeadZones(placements, items.map(isElasticItem), cols, rows, maxStretch);
   return reportFromOccupancy(occupancyOf(filled, cols, rows), cols, rows);
 };
 
@@ -92,13 +97,19 @@ export const formatReport = (report: DeadZoneReport, title = 'dead-zone report')
 };
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Live Showcase config — keep in sync with
-// ../jayf0x.github.io/src/pages/Home/Showcase/index.tsx  (spanForIndex + emptyTiles).
-// Editing the weights here is the fastest way to see their effect on dead space before touching the
-// engine (the all-even widths are *why* column 12 dies — see .claude/next-agent-prompt.md).
+// Live Showcase config — a *verbatim* copy of the desktop grid in
+// ../jayf0x.github.io/src/pages/Home/Showcase/index.tsx (`weightForIndex` + `emptyTiles`), so this
+// harness and the real page lay out identically. Every content item is weight-only (elastic); the
+// three `emptyTiles` are fixed `isEmpty` VoidTiles (intentional negative space). Keep in sync.
 // ─────────────────────────────────────────────────────────────────────────────
-const spanForIndex = (i: number): GridItemProps =>
-  i === 0 ? { weight: 3 } : i % 3 === 0 ? { cols: 2, rows: 1 } : { weight: 2 };
+const weightForIndex = (i: number): number => {
+  if (i === 0) return 3;
+  const x = Math.sin(i * 12.9898) * 43758.5453;
+  const r = x - Math.floor(x);
+  if (r < 0.15) return 3;
+  if (r < 0.55) return 2;
+  return 4;
+};
 
 const emptyTiles = [
   { at: 3, cols: 2, rows: 2 },
@@ -106,13 +117,13 @@ const emptyTiles = [
   { at: 10, cols: 2, rows: 1 },
 ];
 
-/** The exact item stream the desktop Showcase renders (repos + woven-in empties, in order). */
+/** The exact item stream the desktop Showcase renders (repos + woven-in VoidTiles, in order). */
 export const showcaseItems = (count = 12): GridItemProps[] => {
   const items: GridItemProps[] = [];
   for (let i = 0; i < count; i++) {
     const empty = emptyTiles.find((e) => e.at === i);
-    if (empty) items.push({ cols: empty.cols, rows: empty.rows });
-    items.push(spanForIndex(i));
+    if (empty) items.push({ cols: empty.cols, rows: empty.rows, isEmpty: true });
+    items.push({ weight: weightForIndex(i) });
   }
   return items;
 };
@@ -123,10 +134,8 @@ if (import.meta.main) {
   const items = showcaseItems();
 
   console.log(formatReport(analyzeItems(items, cols), `Showcase order-mode (raw)`));
-  console.log();
-  console.log(formatReport(analyzeItemsFilled(items, cols), `Showcase order-mode (dead-zone fill)`));
-  if (!colsArg) {
+  for (const cap of [1, 2, Number.POSITIVE_INFINITY]) {
     console.log();
-    console.log(formatReport(analyzeItems(items, cols, true), `Showcase pack-mode (dense)`));
+    console.log(formatReport(analyzeItemsFilled(items, cols, cap), `order-mode fill (stretch=${cap})`));
   }
 }
